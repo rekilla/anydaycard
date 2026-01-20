@@ -1,0 +1,7 @@
+{
+  "name": "AnyDayCard",
+  "description": "AI-powered personalized greeting card platform that transforms memories and details into meaningful cards for any occasion.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
