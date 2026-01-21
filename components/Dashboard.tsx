@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Calendar, CheckCircle, Clock, Mail, PencilRuler, Plus, Settings, Sparkles, User as UserIcon } from 'lucide-react';
 import { Button } from './Button';
 import { User, GeneratedCard, RecipientProfile, Order, NotificationItem } from '../types';
@@ -12,22 +12,41 @@ interface DashboardProps {
   onCreateNew: () => void;
   onSendToRecipient: (recipientId: string) => void;
   onResumeDraft?: (card: GeneratedCard) => void;
+  onManageCalendar?: () => void;
+  onOpenSettings?: () => void;
+  onLogout?: () => void;
+  onEditScheduledOrder?: (orderId: string, newDate: string) => void;
+  onCancelScheduledOrder?: (orderId: string) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ 
-  user, 
-  recipients, 
-  history, 
+export const Dashboard: React.FC<DashboardProps> = ({
+  user,
+  recipients,
+  history,
   orders,
   notifications,
-  onCreateNew, 
+  onCreateNew,
   onSendToRecipient,
-  onResumeDraft
+  onResumeDraft,
+  onManageCalendar,
+  onOpenSettings,
+  onLogout,
+  onEditScheduledOrder,
+  onCancelScheduledOrder
 }) => {
+  // Expanded state for sections
+  const [showAllScheduled, setShowAllScheduled] = useState(false);
+  const [showAllRecent, setShowAllRecent] = useState(false);
+  const [showAllRecipients, setShowAllRecipients] = useState(false);
+
   const scheduledOrders = orders.filter(order => order.status === 'scheduled' || order.scheduledDate);
   const queuedNotifications = notifications.filter(notification => notification.status === 'queued');
   const draftCards = history.filter(card => card.status === 'draft');
-  const recentHistory = history.slice(0, 4);
+
+  // Display based on expanded state
+  const displayedScheduledOrders = showAllScheduled ? scheduledOrders : scheduledOrders.slice(0, 3);
+  const displayedRecentHistory = showAllRecent ? history : history.slice(0, 4);
+  const displayedRecipients = showAllRecipients ? recipients : recipients.slice(0, 6);
 
   const displayName = user?.email ? user.email.split('@')[0] : 'there';
   return (
@@ -47,7 +66,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <button className="h-9 w-9 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-semibold">
                 {user?.email ? user.email.substring(0, 2).toUpperCase() : <UserIcon size={16} />}
               </button>
-              <button className="h-9 w-9 rounded-full border border-slate-200 bg-white flex items-center justify-center text-slate-500 hover:text-brand-600">
+              <button className="h-9 w-9 rounded-full border border-slate-200 bg-white flex items-center justify-center text-slate-500 hover:text-brand-600" onClick={onOpenSettings}>
                 <Settings size={16} />
               </button>
             </div>
@@ -71,7 +90,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <Button size="lg" onClick={onCreateNew} className="px-8">
                   Create a card
                 </Button>
-                <Button size="lg" variant="outline" className="px-8">
+                <Button size="lg" variant="outline" className="px-8" onClick={onManageCalendar}>
                   Set up calendar
                 </Button>
               </div>
@@ -120,7 +139,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </div>
               <div className="mt-6">
-                <Button variant="outline" className="w-full border-white/30 text-white hover:border-white/60">
+                <Button variant="outline" className="w-full border-white/30 text-white hover:border-white/60" onClick={onOpenSettings}>
                   Profile settings
                 </Button>
               </div>
@@ -133,7 +152,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <h3 className="text-lg font-semibold flex items-center gap-2">
                   <Calendar size={18} className="text-brand-500" /> Calendar queue
                 </h3>
-                <button className="text-xs font-semibold uppercase tracking-widest text-brand-600">Manage</button>
+                <button className="text-xs font-semibold uppercase tracking-widest text-brand-600" onClick={onManageCalendar}>Manage</button>
               </div>
               <div className="space-y-4">
                 {scheduledOrders.length === 0 && (
@@ -141,7 +160,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     No scheduled sends yet. Pick a date to make it effortless.
                   </div>
                 )}
-                {scheduledOrders.slice(0, 3).map(order => (
+                {displayedScheduledOrders.map(order => (
                   <div key={order.id} className="rounded-2xl border border-slate-100 p-4 bg-slate-50">
                     <div className="flex items-center justify-between">
                       <div>
@@ -154,6 +173,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                   </div>
                 ))}
+                {scheduledOrders.length > 3 && (
+                  <button
+                    onClick={() => setShowAllScheduled(!showAllScheduled)}
+                    className="w-full text-xs font-semibold uppercase tracking-widest text-brand-600 hover:text-brand-700 py-2"
+                  >
+                    {showAllScheduled ? 'Show less' : `View all (${scheduledOrders.length})`}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -162,15 +189,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <h3 className="text-lg font-semibold flex items-center gap-2">
                   <CheckCircle size={18} className="text-brand-500" /> Recent cards
                 </h3>
-                <button className="text-xs font-semibold uppercase tracking-widest text-brand-600">View all</button>
+                {history.length > 4 && (
+                  <button
+                    className="text-xs font-semibold uppercase tracking-widest text-brand-600"
+                    onClick={() => setShowAllRecent(!showAllRecent)}
+                  >
+                    {showAllRecent ? 'Show less' : `View all (${history.length})`}
+                  </button>
+                )}
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
-                {recentHistory.length === 0 && (
+                {history.length === 0 && (
                   <div className="rounded-2xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">
                     No cards yet. Start one in minutes.
                   </div>
                 )}
-                {recentHistory.map(card => (
+                {displayedRecentHistory.map(card => (
                   <div
                     key={card.id}
                     onClick={() => card.status === 'draft' && onResumeDraft ? onResumeDraft(card) : null}
@@ -198,7 +232,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <h3 className="text-lg font-semibold flex items-center gap-2">
                   <UserIcon size={18} className="text-brand-500" /> Favorite recipients
                 </h3>
-                <button className="text-xs font-semibold uppercase tracking-widest text-brand-600">Add</button>
+                <button className="text-xs font-semibold uppercase tracking-widest text-brand-600" onClick={onCreateNew}>Add</button>
               </div>
               <div className="flex flex-wrap gap-3">
                 {recipients.length === 0 && (
@@ -206,7 +240,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     Save a recipient to keep them handy.
                   </div>
                 )}
-                {recipients.slice(0, 6).map(recipient => (
+                {displayedRecipients.map(recipient => (
                   <button
                     key={recipient.id}
                     onClick={() => onSendToRecipient(recipient.id)}
@@ -216,6 +250,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <span className="text-xs text-slate-400">{recipient.relationshipType}</span>
                   </button>
                 ))}
+                {recipients.length > 6 && (
+                  <button
+                    onClick={() => setShowAllRecipients(!showAllRecipients)}
+                    className="flex items-center gap-2 rounded-full border border-slate-300 bg-slate-50 px-4 py-2 text-sm text-slate-600 hover:border-brand-300 hover:text-brand-600"
+                  >
+                    {showAllRecipients ? 'Show less' : `View all (${recipients.length})`}
+                  </button>
+                )}
                 <button
                   onClick={onCreateNew}
                   className="flex items-center gap-2 rounded-full border border-dashed border-slate-300 px-4 py-2 text-sm text-slate-500 hover:border-brand-300 hover:text-brand-600"

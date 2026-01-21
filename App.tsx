@@ -7,6 +7,8 @@ import { Checkout } from './components/Checkout';
 import { Dashboard } from './components/Dashboard';
 import { Success } from './components/Success';
 import { Legal } from './components/Legal';
+import { CalendarModal } from './components/CalendarModal';
+import { SettingsModal } from './components/SettingsModal';
 import { GeneratedCard, User, RecipientProfile, RelationshipType, Order, NotificationItem, CheckoutMeta, OrderStatus } from './types';
 
 function AppContent() {
@@ -33,6 +35,16 @@ function AppContent() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [lastOrderId, setLastOrderId] = useState<string | null>(null);
+
+  // -- Modal States --
+  const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+
+  // -- Scheduling State --
+  const [scheduledDatePreset, setScheduledDatePreset] = useState<string | null>(null);
+
+  // -- Navigation State --
+  const [wizardEntryPoint, setWizardEntryPoint] = useState<'/' | '/dashboard'>('/');
 
   // -- Hydration Logic --
   useEffect(() => {
@@ -108,6 +120,7 @@ function AppContent() {
   // Start Anonymous Flow
   const handleAnonymousStart = () => {
     if (!user) setUser({ email: '', isAnonymous: true });
+    setWizardEntryPoint('/'); // Track that we came from homepage
     navigate('/create');
   };
 
@@ -121,6 +134,8 @@ function AppContent() {
   // Start New Card (Blank Slate)
   const handleCreateNew = () => {
     setWizardInitialAnswers({});
+    // Determine entry point based on current user state
+    setWizardEntryPoint(user && !user.isAnonymous ? '/dashboard' : '/');
     navigate('/create');
   };
 
@@ -133,6 +148,7 @@ function AppContent() {
         name: recipient.name,
         relationshipType: recipient.relationshipType,
       });
+      setWizardEntryPoint('/dashboard'); // Always from dashboard
       navigate('/create');
     }
   };
@@ -217,6 +233,45 @@ function AppContent() {
     navigate('/create');
   };
 
+  // Calendar Management
+  const handleManageCalendar = () => {
+    setIsCalendarModalOpen(true);
+  };
+
+  const handleEditScheduledOrder = (orderId: string, newDate: string) => {
+    setOrders(prev => prev.map(order =>
+      order.id === orderId ? { ...order, scheduledDate: newDate } : order
+    ));
+  };
+
+  const handleCancelScheduledOrder = (orderId: string) => {
+    setOrders(prev => prev.filter(order => order.id !== orderId));
+    setNotifications(prev => prev.filter(notif => notif.orderId !== orderId));
+  };
+
+  const handleCreateCardForDate = (date: string) => {
+    setScheduledDatePreset(date);
+    setWizardInitialAnswers({}); // Start fresh wizard
+    setWizardEntryPoint('/dashboard'); // Always from dashboard via calendar
+    navigate('/create');
+  };
+
+  // Settings Management
+  const handleOpenSettings = () => {
+    setIsSettingsModalOpen(true);
+  };
+
+  const handleLogout = () => {
+    setUser({ email: '', isAnonymous: true });
+    setCardHistory([]);
+    setRecipients([]);
+    setOrders([]);
+    setNotifications([]);
+    setLastOrderId(null);
+    localStorage.clear();
+    navigate('/');
+  };
+
   // Checkout & Account Transition Logic
   const handleCheckoutComplete = (email: string, card: GeneratedCard, meta: CheckoutMeta) => {
     // 1. Capture Identity (Anonymous -> Known)
@@ -275,6 +330,9 @@ function AppContent() {
     setNotifications(prev => [...createNotifications(orderId, meta), ...prev]);
     setLastOrderId(orderId);
 
+    // Clear scheduled date preset after successful checkout
+    setScheduledDatePreset(null);
+
     if (meta.deliveryMode === 'now') {
       setTimeout(() => {
         updateOrderStatus(orderId, 'printing');
@@ -288,7 +346,7 @@ function AppContent() {
         markNotificationSent(orderId, 'delivery');
       }, 12000);
     }
-    
+
     // 4. Return to Dashboard is handled by the Checkout success UI calling navigate
   };
 
@@ -296,19 +354,40 @@ function AppContent() {
     <Routes>
       <Route path="/" element={<Landing onStart={handleAnonymousStart} onLogin={handleMagicLinkLogin} />} />
       <Route 
-        path="/dashboard" 
+        path="/dashboard"
         element={
           user && !user.isAnonymous ? (
-            <Dashboard 
-              user={user}
-              recipients={recipients}
-              history={cardHistory}
-              orders={orders}
-              notifications={notifications}
-              onCreateNew={handleCreateNew} 
-              onSendToRecipient={handleCreateForRecipient}
-              onResumeDraft={handleResumeDraft}
-            />
+            <>
+              <Dashboard
+                user={user}
+                recipients={recipients}
+                history={cardHistory}
+                orders={orders}
+                notifications={notifications}
+                onCreateNew={handleCreateNew}
+                onSendToRecipient={handleCreateForRecipient}
+                onResumeDraft={handleResumeDraft}
+                onManageCalendar={handleManageCalendar}
+                onOpenSettings={handleOpenSettings}
+                onLogout={handleLogout}
+                onEditScheduledOrder={handleEditScheduledOrder}
+                onCancelScheduledOrder={handleCancelScheduledOrder}
+              />
+              <CalendarModal
+                isOpen={isCalendarModalOpen}
+                onClose={() => setIsCalendarModalOpen(false)}
+                orders={orders}
+                onEditScheduledOrder={handleEditScheduledOrder}
+                onCancelScheduledOrder={handleCancelScheduledOrder}
+                onCreateCardForDate={handleCreateCardForDate}
+              />
+              <SettingsModal
+                isOpen={isSettingsModalOpen}
+                onClose={() => setIsSettingsModalOpen(false)}
+                user={user}
+                onLogout={handleLogout}
+              />
+            </>
           ) : (
             <Navigate to="/" replace />
           )
@@ -330,10 +409,10 @@ function AppContent() {
       <Route 
         path="/create" 
         element={
-          <Wizard 
+          <Wizard
             initialAnswers={wizardInitialAnswers}
-            onComplete={handleWizardComplete} 
-            onBackToHome={() => navigate('/dashboard')} 
+            onComplete={handleWizardComplete}
+            onBackToHome={() => navigate(wizardEntryPoint)}
           />
         } 
       />
@@ -365,17 +444,18 @@ function AppContent() {
           )
         } 
       />
-      <Route 
-        path="/checkout" 
+      <Route
+        path="/checkout"
         element={
-          <Checkout 
+          <Checkout
             user={user}
             card={generatedCard}
             onSuccess={handleCheckoutComplete}
-            onBack={() => navigate('/preview')} 
+            onBack={() => navigate('/preview')}
             onSuccessNavigate={() => navigate('/success')}
+            scheduledDatePreset={scheduledDatePreset}
           />
-        } 
+        }
       />
     </Routes>
   );

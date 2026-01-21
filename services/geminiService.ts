@@ -3,10 +3,14 @@ import { GeneratedCard, DesignOption, DesignOptions, CardFormat, CoverTextPrefer
 import { recommendDesignStarter, DESIGN_STARTERS } from "./designSystem";
 
 // Initialize Gemini Client
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+if (!apiKey) {
+  throw new Error('VITE_GEMINI_API_KEY environment variable is not set. Please add it to your .env.local file.');
+}
+const ai = new GoogleGenAI({ apiKey });
 
-const TEXT_MODEL = 'gemini-3-flash';
-const IMAGE_MODEL = 'nano-bannana-pro';
+const TEXT_MODEL = 'gemini-1.5-flash'; // Text generation model
+const IMAGE_MODEL = 'gemini-2.5-flash-image'; // Image generation model ("Nano Banana")
 
 const MESSAGE_SYSTEM_INSTRUCTION = `
 AnyDayCard — Safe Emotional Message Generation

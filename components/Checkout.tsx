@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from './Button';
 import { CheckCircle, Truck, Clock, Mail } from 'lucide-react';
 import { User, GeneratedCard, CheckoutMeta } from '../types';
@@ -11,9 +11,10 @@ interface CheckoutProps {
   onSuccess: (email: string, card: GeneratedCard, meta: CheckoutMeta) => void;
   onBack: () => void;
   onSuccessNavigate: () => void;
+  scheduledDatePreset?: string | null;
 }
 
-export const Checkout: React.FC<CheckoutProps> = ({ user, card, onSuccess, onBack, onSuccessNavigate }) => {
+export const Checkout: React.FC<CheckoutProps> = ({ user, card, onSuccess, onBack, onSuccessNavigate, scheduledDatePreset }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   
   // Scheduling State
@@ -39,6 +40,16 @@ export const Checkout: React.FC<CheckoutProps> = ({ user, card, onSuccess, onBac
   const [addressErrors, setAddressErrors] = useState<Record<string, string>>({});
 
   const isAnonymous = !user || user.isAnonymous;
+
+  // Pre-fill scheduling if coming from calendar
+  useEffect(() => {
+    if (scheduledDatePreset) {
+      setDeliveryMode('later');
+      setScheduledDate(scheduledDatePreset);
+      setReminderEnabled(true);
+      setShippingSpeed('byDate');
+    }
+  }, [scheduledDatePreset]);
 
   const handlePay = async () => {
     if (!email.includes('@')) {
