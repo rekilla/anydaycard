@@ -1,0 +1,16 @@
+Create a minimalist fine-art composition dominated by negative space.
+A single subtle element or form slowly emerges from the emptiness, carrying emotional weight through restraint.
+Contrast is gentle and intentional, never harsh.
+The color palette is extremely limited and chosen to reflect {{vibe}} in a quiet, mature way.
+No decoration, no text, no clutter.
+The design should feel contemplative and cohesive across the entire card layout.
+
+---TEXT RULES---
+Text style: tiny serif or sans-serif
+Use for: apology, sensitive moments
+
+Add the text "{{text}}" in a small, understated serif font.
+The text occupies very little space within the negative space.
+Color is soft charcoal.
+Perfectly legible, emotionally restrained.
+The text must be perfectly legible and spelled correctly.

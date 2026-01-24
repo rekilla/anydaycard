@@ -1,0 +1,16 @@
+Create a soft, painterly horizon scene with an abstract sense of distance and openness.
+The horizon is suggested, not literal—light, atmosphere, and gentle gradients create depth.
+Lighting feels like early morning or late evening, calm and patient.
+Colors are muted and harmonious, chosen to reflect {{vibe}}.
+No landmarks, no figures, no text.
+The composition should flow naturally from front to inside with reduced detail for message readability.
+
+---TEXT RULES---
+Text style: small serif or light sans-serif
+Use for: encouragement, missing you
+
+Add the text "{{text}}" in a light serif font.
+The text floats gently above the horizon line without overpowering it.
+Color is pulled from the sky tones.
+Perfectly legible, calm presence.
+The text must be perfectly legible and spelled correctly.

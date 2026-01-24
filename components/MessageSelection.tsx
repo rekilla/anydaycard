@@ -1,12 +1,36 @@
 import React, { useState } from 'react';
 import { Button } from './Button';
-import { RefreshCw, Check, Edit2, Sparkles, ChevronRight } from 'lucide-react';
+import { RefreshCw, Check, Edit2, Sparkles, ChevronRight, Info, AlertTriangle } from 'lucide-react';
+import type { RegenerationPhase } from '../types';
+
+/**
+ * QA score summary for display
+ */
+interface QAScoreSummary {
+  totalScore: number;
+  maxScore: number;
+  feedback?: string;
+}
 
 interface MessageSelectionProps {
   messages: string[];
   onSelect: (message: string, isHeavilyEdited: boolean) => void;
   onRegenerate: () => void;
   isLoading?: boolean;
+  /** Current regeneration phase */
+  regenerationPhase?: RegenerationPhase;
+  /** Number of regeneration attempts */
+  regenerationCount?: number;
+  /** Explanation of what changed in this regeneration */
+  changeExplanation?: string;
+  /** QA scores for each message (parallel to messages array) */
+  qaScores?: QAScoreSummary[];
+  /** Whether user should be prompted for more detail */
+  needsMoreDetail?: boolean;
+  /** Suggested prompt to ask user */
+  suggestedPrompt?: string;
+  /** Callback when user wants to provide more detail */
+  onProvideDetail?: () => void;
 }
 
 // Simple Levenshtein distance for edit calculation
@@ -33,11 +57,18 @@ const calculateEditDistance = (a: string, b: string): number => {
   return matrix[b.length][a.length];
 };
 
-export const MessageSelection: React.FC<MessageSelectionProps> = ({ 
-  messages, 
-  onSelect, 
+export const MessageSelection: React.FC<MessageSelectionProps> = ({
+  messages,
+  onSelect,
   onRegenerate,
-  isLoading 
+  isLoading,
+  regenerationPhase = 'initial',
+  regenerationCount = 0,
+  changeExplanation,
+  qaScores,
+  needsMoreDetail,
+  suggestedPrompt,
+  onProvideDetail,
 }) => {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [editedMessages, setEditedMessages] = useState<string[]>(messages);
@@ -49,6 +80,33 @@ export const MessageSelection: React.FC<MessageSelectionProps> = ({
     setSelectedIndex(null);
     setIsEditing(false);
   }, [messages]);
+
+  // Get regeneration button text based on phase
+  const getRegenerateText = (): string => {
+    switch (regenerationPhase) {
+      case 'initial':
+      case 'rephrase':
+        return 'Try another set';
+      case 'new_angle':
+        return 'Try a different angle';
+      case 'clarify':
+        return 'Add more detail';
+      default:
+        return 'Try another set';
+    }
+  };
+
+  // Get QA score display for a message
+  const getScoreDisplay = (index: number): { label: string; color: string } | null => {
+    if (!qaScores || !qaScores[index]) return null;
+    const score = qaScores[index];
+    const percentage = Math.round((score.totalScore / score.maxScore) * 100);
+
+    if (percentage >= 80) return { label: 'Excellent', color: 'text-green-600' };
+    if (percentage >= 60) return { label: 'Good', color: 'text-brand-600' };
+    if (percentage >= 40) return { label: 'Fair', color: 'text-amber-600' };
+    return { label: 'Needs work', color: 'text-red-500' };
+  };
 
   const handleTextChange = (index: number, val: string) => {
     const newMsgs = [...editedMessages];
@@ -91,6 +149,43 @@ export const MessageSelection: React.FC<MessageSelectionProps> = ({
           </p>
         </div>
 
+        {/* Change Explanation Banner (shown after regeneration) */}
+        {changeExplanation && regenerationCount > 0 && (
+          <div className="flex items-center gap-3 px-4 py-3 bg-brand-50 border border-brand-100 rounded-xl animate-fade-in">
+            <Sparkles size={18} className="text-brand-500 flex-shrink-0" />
+            <p className="text-sm text-brand-700">
+              <span className="font-semibold">What changed:</span> {changeExplanation}
+            </p>
+          </div>
+        )}
+
+        {/* Needs More Detail Prompt */}
+        {needsMoreDetail && suggestedPrompt && (
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 px-5 py-4 bg-amber-50 border border-amber-200 rounded-xl animate-fade-in">
+            <div className="flex items-start gap-3 flex-1">
+              <AlertTriangle size={20} className="text-amber-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-amber-800">
+                  We can make this more personal
+                </p>
+                <p className="text-sm text-amber-700 mt-1">
+                  {suggestedPrompt}
+                </p>
+              </div>
+            </div>
+            {onProvideDetail && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onProvideDetail}
+                className="border-amber-300 text-amber-700 hover:bg-amber-100 flex-shrink-0"
+              >
+                Add Detail
+              </Button>
+            )}
+          </div>
+        )}
+
         {/* Grid */}
         <div className="grid md:grid-cols-2 gap-6">
           {editedMessages.map((msg, idx) => {
@@ -130,10 +225,25 @@ export const MessageSelection: React.FC<MessageSelectionProps> = ({
                   )}
                 </div>
 
+                {/* QA Score Indicator (when scores available) */}
+                {(() => {
+                  const scoreDisplay = getScoreDisplay(idx);
+                  if (scoreDisplay && !isSelected) {
+                    return (
+                      <div className="absolute bottom-4 left-4">
+                        <span className={`text-xs font-medium ${scoreDisplay.color}`}>
+                          {scoreDisplay.label}
+                        </span>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+
                 {/* Actions Bar (Only visible when selected) */}
                 {isSelected && (
                   <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center animate-fade-in">
-                    <button 
+                    <button
                       onClick={(e) => {
                         e.stopPropagation();
                         setIsEditing(!isEditing);
@@ -142,7 +252,15 @@ export const MessageSelection: React.FC<MessageSelectionProps> = ({
                     >
                       <Edit2 size={12} /> {isEditing ? 'Done Editing' : 'Edit Text'}
                     </button>
-                    <span className="text-xs text-brand-600 font-bold">Selected</span>
+                    <div className="flex items-center gap-3">
+                      {/* Show QA feedback when selected */}
+                      {qaScores && qaScores[idx]?.feedback && (
+                        <span className="text-xs text-slate-400 max-w-[150px] truncate" title={qaScores[idx].feedback}>
+                          {qaScores[idx].feedback}
+                        </span>
+                      )}
+                      <span className="text-xs text-brand-600 font-bold">Selected</span>
+                    </div>
                   </div>
                 )}
               </div>
@@ -152,13 +270,16 @@ export const MessageSelection: React.FC<MessageSelectionProps> = ({
 
         {/* Footer Actions */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-6 pt-8 border-t border-slate-200">
-          <button 
+          <button
             onClick={onRegenerate}
             disabled={isLoading}
             className="flex items-center gap-2 text-slate-500 hover:text-slate-800 font-medium transition-colors"
           >
             <RefreshCw size={18} className={isLoading ? 'animate-spin' : ''} />
-            Try another set
+            {getRegenerateText()}
+            {regenerationCount > 0 && (
+              <span className="text-xs text-slate-400">({regenerationCount})</span>
+            )}
           </button>
 
           <Button 

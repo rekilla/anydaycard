@@ -1,6 +1,17 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { GeneratedCard, DesignOption, DesignOptions, CardFormat, CoverTextPreference } from "../types";
 import { recommendDesignStarter, DESIGN_STARTERS } from "./designSystem";
+import {
+  getTextSystemPrompt,
+  BANNED_PHRASES,
+  TEMPLATE_GENERATION_INSTRUCTION,
+  ART_DIRECTION_INSTRUCTION,
+  getArtDirectionInstruction,
+  buildImagePrompt,
+  getFallbackPrompts,
+  getEffectiveTemplateId,
+  getHolidayOverlayInfo,
+} from "./prompts";
 
 // Initialize Gemini Client
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
@@ -9,76 +20,8 @@ if (!apiKey) {
 }
 const ai = new GoogleGenAI({ apiKey });
 
-const TEXT_MODEL = 'gemini-1.5-flash'; // Text generation model
-const IMAGE_MODEL = 'gemini-2.5-flash-image'; // Image generation model ("Nano Banana")
-
-const MESSAGE_SYSTEM_INSTRUCTION = `
-AnyDayCard — Safe Emotional Message Generation
-
-You are an AI writer for AnyDayCard, a product that creates deeply personal greeting card messages based on user-provided relationship details and memories.
-
-Your role is to write emotionally resonant, specific, and human-sounding card messages while maintaining strict emotional safety, appropriateness, and respect.
-
-NON-NEGOTIABLE SAFETY GUARDRAILS:
-
-1. No Harmful or Manipulative Language
-- Never generate language that guilt-trips, pressures, or emotionally coerces.
-- Avoid phrases like "I can't live without you" or "You owe me".
-
-2. Apology & Repair Rules
-- Acknowledge harm without minimizing it.
-- Do not frame apologies as transactional.
-- Avoid excessive self-flagellation.
-
-3. Illness, Grief & Vulnerability
-- Avoid medical advice or timelines ("you'll be okay soon").
-- Avoid platitudes ("everything happens for a reason").
-- Prefer presence and patience.
-
-4. Relationship Appropriateness
-- Professional: Respectful, warm, NON-INTIMATE. No "Love" or overly personal declarations.
-- New Dating: Light, curious, non-committal.
-- Friendship: Mutual, balanced, not romantic unless specified.
-
-5. Humor Safety
-- Humor must be inclusive and kind.
-- No mean-spirited sarcasm or punching down.
-- If humor conflicts with sensitivity, drop humor.
-
-6. Specificity Without Exposure
-- Use user details but avoid revealing secrets or embarrassing facts.
-- Transform sensitive input into gentle, symbolic language if needed.
-
-ABSOLUTE RULE:
-If the user's input suggests intensity that could cause harm or discomfort, dial it down rather than amplifying it. A card should leave the recipient feeling seen, not cornered.
-
-Generate 4 distinct options that vary in tone, structure, and length.
-`;
-
-const DESIGN_SYSTEM_INSTRUCTION = `
-You are an expert art director.
-Your goal is to describe a visual scene for a greeting card cover that matches the emotion of the chosen message and the user's details.
-Focus on symbolic, meaningful imagery.
-`;
-
-const TEMPLATE_PROMPT_INSTRUCTION = `
-You are an expert art director for greeting card design.
-Generate short, specific subject prompts that are print-ready and fit the requested template style.
-The prompts must be image-only (no text, lettering, or typography).
-Front prompts should feel like a hero cover illustration.
-Back prompts should be subtle, low-contrast backgrounds suitable for overlaying readable message text.
-Return JSON with "frontPrompts" (2 items) and "backPrompts" (2 items), each 1 sentence.
-`;
-
-/**
- * Step 1: Generate 4 distinct message options
- */
-const BANNED_PHRASES = [
-  'you owe me',
-  "can't live without you",
-  'if you loved me',
-  'prove it',
-];
+const TEXT_MODEL = 'gemini-2.0-flash'; // Text generation model
+const IMAGE_MODEL = 'imagen-4.0-generate-001'; // Imagen 4 for high-quality image generation
 
 const passesQualityChecks = (message: string, answers: Record<string, any>) => {
   const text = message.toLowerCase();
@@ -111,7 +54,16 @@ const postProcessOptions = (options: string[], answers: Record<string, any>) => 
   return filtered.length >= 4 ? filtered.slice(0, 4) : cleaned.slice(0, 4);
 };
 
-const generateImageFromPrompt = async (finalImagePrompt: string): Promise<string> => {
+/**
+ * Generate an image from a prompt using Imagen 4
+ * @param finalImagePrompt - The complete image prompt
+ * @param aspectRatio - Aspect ratio for the image (default: '1:1')
+ *   Supported: '1:1', '3:4', '4:3', '9:16', '16:9'
+ */
+const generateImageFromPrompt = async (
+  finalImagePrompt: string,
+  aspectRatio: string = '1:1'
+): Promise<string> => {
   let imageBase64 = '';
   let attempts = 0;
   const MAX_RETRIES = 1; // 1 retry means 2 total attempts
@@ -119,25 +71,35 @@ const generateImageFromPrompt = async (finalImagePrompt: string): Promise<string
   while (attempts <= MAX_RETRIES) {
     try {
       attempts++;
-      const imageResponse = await ai.models.generateContent({
-        model: IMAGE_MODEL,
-        contents: {
-          parts: [{ text: finalImagePrompt }],
-        },
-        config: {
-          imageConfig: {
-            aspectRatio: '1:1',
-          },
-        },
-      });
 
-      if (imageResponse.candidates?.[0]?.content?.parts) {
-        for (const part of imageResponse.candidates[0].content.parts) {
-          if (part.inlineData) {
-            imageBase64 = `data:image/png;base64,${part.inlineData.data}`;
-            break;
-          }
+      // Use Imagen 4 API via REST call (predict endpoint)
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_MODEL}:predict?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            instances: [{ prompt: finalImagePrompt }],
+            parameters: {
+              sampleCount: 1,
+              aspectRatio: aspectRatio,
+            },
+          }),
         }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.predictions?.[0]?.bytesBase64Encoded) {
+        const mimeType = data.predictions[0].mimeType || 'image/png';
+        imageBase64 = `data:${mimeType};base64,${data.predictions[0].bytesBase64Encoded}`;
       }
 
       if (imageBase64) {
@@ -156,52 +118,131 @@ const generateImageFromPrompt = async (finalImagePrompt: string): Promise<string
   return imageBase64;
 };
 
+/**
+ * Card message option with structured output matching Cardwriter format
+ */
+export interface CardMessageOption {
+  frontText: string;
+  insideMessage: string;
+  signOff: string;
+}
+
 export const generateMessageOptions = async (
   answers: Record<string, any>,
   attempt: number = 0,
   previousMessages: string[] = []
 ): Promise<string[]> => {
   const model = TEXT_MODEL;
-  const safetyPrompt = MESSAGE_SYSTEM_INSTRUCTION.trim();
-  if (!safetyPrompt) {
-    throw new Error('Message safety system prompt is missing.');
-  }
+
+  // Get context-appropriate system prompt from prompt library
+  // Pass full answers to enable guardrail detection
+  const promptOccasion = answers.specialDay || answers.lifeEvent || answers.occasion;
+  const systemPrompt = getTextSystemPrompt(
+    promptOccasion,
+    answers.relationshipType,
+    Array.isArray(answers.vibe) ? answers.vibe : [answers.vibe],
+    answers // Pass full answers for guardrail detection
+  );
+  const safetyPrompt = systemPrompt.content;
+
+  // QA hint from previous scoring (if regenerating due to low scores)
+  const qaHint = answers._qaHint
+    ? `\n\nIMPROVEMENT FOCUS (previous generation scored low):\n${answers._qaHint}`
+    : '';
+
+  // Vibe-specific instructions from mapping
+  const vibeInstructions = answers._vibeInstructions
+    ? `\n\n${answers._vibeInstructions}`
+    : '';
 
   const adjustmentNote = attempt > 0
-    ? `Attempt ${attempt}: Focus on higher specificity, safe warmth, and avoid repeating prior options.`
-    : "First attempt.";
+    ? `Attempt ${attempt}: Focus on higher specificity, safe warmth, and avoid repeating prior options.${qaHint}`
+    : `First attempt.${vibeInstructions}`;
 
   const previousBlock = previousMessages.length > 0
     ? `Previously generated options (avoid reusing phrasing): ${JSON.stringify(previousMessages)}`
     : "";
 
-  const prompt = `
-    Generate 4 distinct greeting card message options for:
-    Recipient Name: ${answers.name}
-    Relationship: ${answers.relationshipType}
-    Occasion: ${answers.occasion}
-    Vibe: ${Array.isArray(answers.vibe) ? answers.vibe.join(', ') : answers.vibe}
-    
-    Specific Details & Context:
-    ${JSON.stringify(answers, null, 2)}
-    
-    REQUIREMENTS:
-    - Option 1: Short & Punchy (Direct, maybe slightly witty if vibe fits)
-    - Option 2: Heartfelt & Warm (Focus on the relationship depth)
-    - Option 3: Narrative (Reference the specific memory/detail provided directly)
-    - Option 4: A different angle (e.g. Poetic, or Casual, or Deep depending on the vibe)
-    - Avoid guilt, pressure, or manipulative language.
-    - Use at least one specific detail when available.
-    
-    ${adjustmentNote}
-    ${previousBlock}
-    
-    Ensure all options feel like they were written by the user, not a robot.
-    
-    Output JSON Schema:
-    {
-      "options": ["string", "string", "string", "string"]
+  // Determine the occasion based on cardType
+  const getOccasionContext = () => {
+    if (answers.cardType === 'special_day' && answers.specialDay) {
+      return answers.specialDay;
     }
+    if (answers.cardType === 'life_event' && answers.lifeEvent) {
+      return answers.lifeEvent;
+    }
+    return answers.occasion || 'a personal moment';
+  };
+
+  // Determine special day for Cardwriter prompt
+  const getSpecialDay = () => {
+    if (answers.cardType === 'special_day' && answers.specialDay) {
+      const specialDayMap: Record<string, string> = {
+        "Valentine's Day": 'valentines_day',
+        "Mother's Day": 'mothers_day',
+        "Father's Day": 'fathers_day',
+        'Christmas': 'christmas',
+        'Hanukkah': 'hanukkah',
+        'New Year': 'new_year',
+        'Thanksgiving': 'thanksgiving',
+        'Easter': 'easter',
+      };
+      return specialDayMap[answers.specialDay] || 'other_or_none';
+    }
+    return 'other_or_none';
+  };
+
+  const occasionContext = getOccasionContext();
+  const specialDay = getSpecialDay();
+
+  // Build user details object for Cardwriter format
+  const userDetails: Record<string, string> = {};
+  if (answers.recentMoment) userDetails.recentMoment = answers.recentMoment;
+  if (answers.sharedMemory) userDetails.sharedMemory = answers.sharedMemory;
+  if (answers.insideJoke) userDetails.insideJoke = answers.insideJoke;
+  if (answers.whatYouAdmire) userDetails.whatYouAdmire = answers.whatYouAdmire;
+  if (answers.whatTheyDid) userDetails.whatTheyDid = answers.whatTheyDid;
+  if (answers.taughtYou) userDetails.taughtYou = answers.taughtYou;
+  if (answers.alwaysSays) userDetails.alwaysSays = answers.alwaysSays;
+  if (answers.proudMoment) userDetails.proudMoment = answers.proudMoment;
+  if (answers.theirThing) userDetails.theirThing = answers.theirThing;
+  if (answers.theirQuirk) userDetails.theirQuirk = answers.theirQuirk;
+  if (answers.anyDetails) userDetails.anyDetails = answers.anyDetails;
+
+  const prompt = `
+Generate 4 distinct card text options. For each, provide FRONT_TEXT, INSIDE_MESSAGE, and SIGN_OFF.
+
+INPUTS:
+- recipientName: ${answers.name || 'Friend'}
+- relationshipType: ${answers.relationshipType || 'friend'}
+- occasion: ${occasionContext}
+- specialDay: ${specialDay}
+- vibe: ${Array.isArray(answers.vibe) ? answers.vibe.join(', ') : answers.vibe || 'heartfelt'}
+${answers.humorType ? `- humorType: ${answers.humorType}` : ''}
+${answers.heartfeltDepth ? `- heartfeltDepth: ${answers.heartfeltDepth}` : ''}
+- userDetails: ${Object.keys(userDetails).length > 0 ? JSON.stringify(userDetails) : 'none provided'}
+${Array.isArray(answers.quickTraits) && answers.quickTraits.length > 0 ? `- quickTraits: ${answers.quickTraits.join(', ')}` : ''}
+${answers.senderName ? `- senderName: ${answers.senderName}` : ''}
+
+VARIATION REQUIREMENTS:
+- Option 1: Short & punchy, direct tone
+- Option 2: Heartfelt & warm, deeper emotional connection
+- Option 3: Memory/detail-forward, anchor on specific input if available
+- Option 4: Different angle based on vibe (playful, poetic, casual, or bold)
+
+${adjustmentNote}
+${previousBlock}
+
+Return exactly 4 options in this JSON format:
+{
+  "options": [
+    {
+      "frontText": "1-4 words for card cover (or empty string if design-only)",
+      "insideMessage": "45-110 word message following Cardwriter structure rules",
+      "signOff": "1-3 word closing with optional sender name"
+    }
+  ]
+}
   `;
 
   try {
@@ -216,16 +257,34 @@ export const generateMessageOptions = async (
           properties: {
             options: {
               type: Type.ARRAY,
-              items: { type: Type.STRING }
-            }
-          }
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  frontText: { type: Type.STRING },
+                  insideMessage: { type: Type.STRING },
+                  signOff: { type: Type.STRING },
+                },
+              },
+            },
+          },
         },
       },
     });
 
     const json = JSON.parse(response.text || "{}");
     if (json.options && Array.isArray(json.options)) {
-      const processed = postProcessOptions(json.options, answers);
+      // Combine structured output into display strings for backward compatibility
+      // Format: "insideMessage\n\nsignOff" (frontText stored separately if needed)
+      const combinedMessages = json.options.map((opt: CardMessageOption) => {
+        const message = opt.insideMessage || '';
+        const signOff = opt.signOff || '';
+        return signOff ? `${message}\n\n${signOff}` : message;
+      });
+
+      // Store frontText options in answers for later use in design generation
+      answers._frontTextOptions = json.options.map((opt: CardMessageOption) => opt.frontText || '');
+
+      const processed = postProcessOptions(combinedMessages, answers);
       if (processed.length === 4) {
         return processed;
       }
@@ -249,7 +308,23 @@ export const generateDesignOptions = async (
   }
 ): Promise<DesignOptions> => {
   const model = TEXT_MODEL;
-  const template = DESIGN_STARTERS[templateId] || recommendDesignStarter(answers);
+
+  // Get effective template (may be overridden by holiday conflict resolution)
+  // e.g., Holiday + apology → letterpress_minimal
+  const { templateId: effectiveTemplateId, wasOverridden, reason } =
+    getEffectiveTemplateId(templateId, answers);
+
+  if (wasOverridden) {
+    console.info(`[Holiday Overlay] Template overridden: ${reason}`);
+  }
+
+  // Get holiday overlay info for logging/debugging
+  const holidayInfo = getHolidayOverlayInfo(answers);
+  if (holidayInfo.holidayId) {
+    console.info(`[Holiday Overlay] Detected: ${holidayInfo.holidayId}, conflict: ${holidayInfo.conflictResolution.hasConflict}`);
+  }
+
+  const template = DESIGN_STARTERS[effectiveTemplateId] || recommendDesignStarter(answers);
   const cardFormat = preferences?.cardFormat ?? null;
   const coverTextPreference = preferences?.coverTextPreference ?? null;
 
@@ -281,6 +356,19 @@ export const generateDesignOptions = async (
     answers.anyDetails ? `Details: "${answers.anyDetails}"` : "",
   ].filter(Boolean);
 
+  // Determine the occasion based on cardType for design
+  const getDesignOccasion = () => {
+    if (answers.cardType === 'special_day' && answers.specialDay) {
+      return answers.specialDay;
+    }
+    if (answers.cardType === 'life_event' && answers.lifeEvent) {
+      return answers.lifeEvent;
+    }
+    return answers.occasion || 'Unknown';
+  };
+
+  const designOccasion = getDesignOccasion();
+
   const prompt = `
     Template: ${template.name}
     Template Description: ${template.description}
@@ -288,7 +376,8 @@ export const generateDesignOptions = async (
     Context:
     - Recipient: ${answers.name || 'Unknown'}
     - Relationship: ${answers.relationshipType || 'Unknown'}
-    - Occasion: ${answers.occasion || 'Unknown'}
+    - Card Type: ${answers.cardType === 'special_day' ? 'Special Day/Holiday' : answers.cardType === 'life_event' ? 'Life Event' : 'Personal'}
+    - Occasion: ${designOccasion}
     - Vibe: ${Array.isArray(answers.vibe) ? answers.vibe.join(', ') : answers.vibe || 'Unspecified'}
     - Selected Message: "${selectedMessage}"
     - Card format: ${cardFormatLabel}
@@ -299,6 +388,8 @@ export const generateDesignOptions = async (
 
     ${toneNote}
     ${coverTextGuidance}
+
+    If this is for a specific holiday (like Valentine's Day, Christmas, etc.), incorporate subtle thematic elements that fit the occasion.
 
     Return two front prompts and two back prompts.
   `;
@@ -311,7 +402,7 @@ export const generateDesignOptions = async (
       model,
       contents: prompt,
       config: {
-        systemInstruction: TEMPLATE_PROMPT_INSTRUCTION,
+        systemInstruction: TEMPLATE_GENERATION_INSTRUCTION,
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -353,10 +444,15 @@ export const generateDesignOptions = async (
   const frontOptions: DesignOption[] = [];
   for (let i = 0; i < 2; i += 1) {
     const basePrompt = frontPrompts[i] || frontPrompts[0];
-    const frontTextInstruction = coverTextPreference === 'text-on-image'
-      ? 'greeting card cover, leave clean space for a short cover line, no text.'
-      : 'greeting card cover, no text.';
-    const finalPrompt = `${basePrompt}. ${template.imagePromptSuffix}. ${frontTextInstruction}`;
+    // Use buildImagePrompt with effectiveTemplateId (holiday-aware) and answers for personalization
+    // Holiday overlay is automatically applied inside buildImagePrompt based on answers.specialDay
+    const finalPrompt = buildImagePrompt(
+      basePrompt,
+      effectiveTemplateId,
+      'front',
+      answers,
+      coverTextPreference
+    );
     const image = await generateImageFromPrompt(finalPrompt);
     frontOptions.push({
       id: `front-${i + 1}`,
@@ -368,7 +464,13 @@ export const generateDesignOptions = async (
   const backOptions: DesignOption[] = [];
   for (let i = 0; i < 2; i += 1) {
     const basePrompt = backPrompts[i] || backPrompts[0];
-    const finalPrompt = `${basePrompt}. ${template.imagePromptSuffix}. subtle, low contrast, extra whitespace for text, no text.`;
+    // Use buildImagePrompt with effectiveTemplateId (holiday-aware) and answers for personalization
+    const finalPrompt = buildImagePrompt(
+      basePrompt,
+      effectiveTemplateId,
+      'back',
+      answers
+    );
     const image = await generateImageFromPrompt(finalPrompt);
     backOptions.push({
       id: `back-${i + 1}`,
@@ -436,7 +538,7 @@ export const generateCardDesign = async (
       model: model,
       contents: prompt,
       config: {
-        systemInstruction: DESIGN_SYSTEM_INSTRUCTION,
+        systemInstruction: ART_DIRECTION_INSTRUCTION,
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,

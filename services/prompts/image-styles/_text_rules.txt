@@ -1,0 +1,53 @@
+TEXT ON DESIGN — ANYDAYCARD RULES
+
+0. WHEN TEXT IS ALLOWED (IMPORTANT)
+
+Text on the card design is optional, never default.
+
+Allow text ONLY when:
+- User explicitly chooses "Text on design"
+- Or occasion strongly supports it (Valentine's, Mother's Day, Father's Day, Birthday)
+- Or professional cards (very minimal)
+
+Max 1–3 words. Never full sentences on the artwork.
+
+Examples:
+- "Always You"
+- "For Mom"
+- "Thinking of You"
+- "Thank You"
+- "Still Us"
+
+1. GLOBAL TEXT RULES (HARD CONSTRAINTS)
+
+These apply to all 11 styles.
+
+- Always wrap text in quotes → "LOVE YOU"
+- Always specify font style immediately
+- Text must visually belong to the artwork (not pasted on)
+- No competing backgrounds behind text
+- Text color must come from the same palette as the design
+- Inside text area must remain clean/readable
+- Add this to every text-enabled prompt: "The text must be perfectly legible and spelled correctly."
+
+2. TEXT PLACEMENT LOGIC
+
+- Front: primary text (if used)
+- Inside: NO decorative text (message only)
+- Back: optional micro-text only (e.g., dot, line, or nothing)
+
+Never introduce new typography styles on different sides.
+
+3. HOLIDAY OVERRIDE (TEXT + COLOR)
+
+When a day parameter is active:
+- Valentine's → warmer palette + softer type
+- Mother's Day → gentle serif / calligraphy
+- Father's Day → sans-serif or letterpress
+- Birthday → bolder, higher contrast allowed
+
+Holiday rules override normal vibe mapping.
+
+4. FINAL SYSTEM REMINDER
+
+If text is included, the artwork must feel designed around the words — not decorated after them.

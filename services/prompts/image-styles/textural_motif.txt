@@ -1,0 +1,16 @@
+Create a minimal composition focused on texture and material rather than objects.
+The surface feels tactile—handmade paper, linen, or canvas—with subtle tonal variation and visible grain.
+Lighting is soft and natural, with low contrast and calm shadows.
+Use a restrained palette of warm neutrals and gentle earth tones.
+The mood should feel thoughtful and aligned with {{vibe}}.
+No clutter, no patterns, no text. Designed as a continuous visual system that can extend across the entire card.
+
+---TEXT RULES---
+Text style: small serif, letterpress feel
+Use for: gratitude, apology, professional
+
+Add the text "{{text}}" in a refined serif font.
+The text appears subtly letterpressed into the textured paper surface.
+Ink color is warm charcoal, low contrast, understated.
+Perfectly legible, minimalist placement.
+The text must be perfectly legible and spelled correctly.

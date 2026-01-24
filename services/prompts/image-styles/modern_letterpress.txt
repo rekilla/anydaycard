@@ -1,0 +1,16 @@
+Create a refined, letterpress-inspired minimalist design.
+The surface resembles thick, off-white cotton paper with subtle depth and tactile impression.
+Visual elements are extremely restrained—simple forms, gentle emboss or deboss effects, and generous margins.
+Use a timeless, premium color palette aligned with {{vibe}}.
+No illustrations, no text, no photorealism.
+The design should feel intentional, adult, and elegant, flowing seamlessly across front, inside, and back.
+
+---TEXT RULES---
+Text style: letterpress serif (ALL CAPS)
+Use for: professional, gratitude, apology
+
+Add the text "{{text}}" in an all-caps serif font.
+The text appears subtly debossed into thick cotton paper.
+Ink color is muted navy or charcoal.
+Perfectly legible, premium finish.
+The text must be perfectly legible and spelled correctly.

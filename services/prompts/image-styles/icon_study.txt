@@ -1,0 +1,16 @@
+Create a minimal still-life illustration featuring a single symbolic object, optionally inspired by {{theirThing}} if provided.
+The object is isolated and centered, surrounded by calm negative space.
+Lighting is soft and studio-like, with a subtle shadow grounding the object.
+Use a simple, harmonious color palette that reflects {{vibe}} without distraction.
+No background details, no text, no photorealism.
+The design should feel timeless and extend cleanly across front, inside, and back.
+
+---TEXT RULES---
+Text style: clean sans-serif
+Use for: modern, confident cards
+
+Add the text "{{text}}" in a simple modern sans-serif font.
+The text sits calmly beneath the icon with generous spacing.
+Color matches the icon's accent tone.
+Perfectly legible, no decoration.
+The text must be perfectly legible and spelled correctly.

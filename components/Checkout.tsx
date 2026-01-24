@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { CardElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { Button } from './Button';
 import { CheckCircle, Truck, Clock, Mail } from 'lucide-react';
 import { User, GeneratedCard, CheckoutMeta } from '../types';
-import { createCheckoutSession, confirmPayment } from '../services/paymentService';
+import { createPaymentIntent } from '../services/paymentService';
 import { createPostcardOrder } from '../services/fulfillmentService';
 
 interface CheckoutProps {
@@ -15,6 +16,8 @@ interface CheckoutProps {
 }
 
 export const Checkout: React.FC<CheckoutProps> = ({ user, card, onSuccess, onBack, onSuccessNavigate, scheduledDatePreset }) => {
+  const stripe = useStripe();
+  const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
   
   // Scheduling State
@@ -25,9 +28,8 @@ export const Checkout: React.FC<CheckoutProps> = ({ user, card, onSuccess, onBac
 
   // Identity State
   const [email, setEmail] = useState(user?.email || '');
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvc, setCardCvc] = useState('');
+  const [cardComplete, setCardComplete] = useState(false);
+  const [cardError, setCardError] = useState<string | null>(null);
 
   const [address, setAddress] = useState({
     name: '',
@@ -61,11 +63,12 @@ export const Checkout: React.FC<CheckoutProps> = ({ user, card, onSuccess, onBac
     if (!address.name.trim()) errors.name = 'Recipient name is required.';
     if (!address.line1.trim()) errors.line1 = 'Street address is required.';
     if (!address.city.trim()) errors.city = 'City is required.';
+    if (!address.state?.trim()) errors.state = 'State is required.';
     if (!address.postalCode.trim()) errors.postalCode = 'Postal code is required.';
     if (!/^[0-9]{5}(-[0-9]{4})?$/.test(address.postalCode.trim())) {
       errors.postalCode = 'Enter a valid ZIP code.';
     }
-    if (!cardNumber.trim() || !cardExpiry.trim() || !cardCvc.trim()) {
+    if (!cardComplete) {
       errors.card = 'Complete payment details to continue.';
     }
     if (deliveryMode === 'later' && !scheduledDate) {
@@ -75,22 +78,66 @@ export const Checkout: React.FC<CheckoutProps> = ({ user, card, onSuccess, onBac
     setAddressErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
+    if (!stripe || !elements) {
+      alert('Stripe is still loading. Please try again in a moment.');
+      return;
+    }
+
     setIsProcessing(true);
 
     try {
-      const session = await createCheckoutSession(email, totalCost);
-      const payment = await confirmPayment(session.id);
-      if (payment.status !== 'succeeded') {
-        alert('Payment failed. Please try again.');
+      const cardElement = elements.getElement(CardElement);
+      if (!cardElement) {
+        alert('Payment form is not ready. Please try again.');
+        setIsProcessing(false);
+        return;
+      }
+
+      const paymentIntent = await createPaymentIntent({
+        amount: Math.round(totalCost * 100),
+        currency: 'usd',
+        email,
+        metadata: {
+          cardId: card?.id || 'unknown',
+          deliveryMode,
+          shippingSpeed: deliveryMode === 'later' ? 'byDate' : shippingSpeed,
+        },
+      });
+
+      const { error, paymentIntent: confirmedIntent } = await stripe.confirmCardPayment(
+        paymentIntent.clientSecret,
+        {
+          payment_method: {
+            card: cardElement,
+            billing_details: {
+              email,
+              name: address.name,
+            },
+          },
+        }
+      );
+
+      if (error) {
+        setCardError(error.message || 'Payment failed. Please try again.');
+        setIsProcessing(false);
+        return;
+      }
+
+      if (!confirmedIntent || confirmedIntent.status !== 'succeeded') {
+        setCardError('Payment could not be completed. Please try again.');
         setIsProcessing(false);
         return;
       }
 
       if (card) {
         const fulfillment = await createPostcardOrder({
+          card,
+          email,
           deliveryMode,
           shippingSpeed: deliveryMode === 'later' ? 'byDate' : shippingSpeed,
           scheduledDate: deliveryMode === 'later' ? scheduledDate : undefined,
+          shippingAddress: address,
+          size: '6x9',
         });
 
         const meta: CheckoutMeta = {
@@ -346,7 +393,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ user, card, onSuccess, onBac
                 onChange={(e) => setAddress(prev => ({ ...prev, line2: e.target.value }))}
                 className="w-full border border-slate-200 p-3 rounded-lg focus:outline-none focus:border-brand-400 transition-colors" 
               />
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <input 
                     type="text" 
@@ -356,6 +403,16 @@ export const Checkout: React.FC<CheckoutProps> = ({ user, card, onSuccess, onBac
                     className="w-full border border-slate-200 p-3 rounded-lg focus:outline-none focus:border-brand-400 transition-colors" 
                   />
                   {addressErrors.city && <p className="text-xs text-red-500 mt-1">{addressErrors.city}</p>}
+                </div>
+                <div>
+                  <input 
+                    type="text" 
+                    placeholder="State" 
+                    value={address.state}
+                    onChange={(e) => setAddress(prev => ({ ...prev, state: e.target.value }))}
+                    className="w-full border border-slate-200 p-3 rounded-lg focus:outline-none focus:border-brand-400 transition-colors" 
+                  />
+                  {addressErrors.state && <p className="text-xs text-red-500 mt-1">{addressErrors.state}</p>}
                 </div>
                 <div>
                   <input 
@@ -379,30 +436,32 @@ export const Checkout: React.FC<CheckoutProps> = ({ user, card, onSuccess, onBac
                <CheckCircle size={16} /> Payment
             </h3>
             <div className="grid gap-4">
-              <input 
-                type="text" 
-                placeholder="Card Number"
-                value={cardNumber}
-                onChange={(e) => setCardNumber(e.target.value)}
-                className="w-full border border-slate-200 p-3 rounded-lg focus:outline-none focus:border-brand-400 transition-colors" 
-              />
-              <div className="grid grid-cols-2 gap-4">
-                <input 
-                  type="text" 
-                  placeholder="MM/YY" 
-                  value={cardExpiry}
-                  onChange={(e) => setCardExpiry(e.target.value)}
-                  className="w-full border border-slate-200 p-3 rounded-lg focus:outline-none focus:border-brand-400 transition-colors" 
-                />
-                <input 
-                  type="text" 
-                  placeholder="CVC" 
-                  value={cardCvc}
-                  onChange={(e) => setCardCvc(e.target.value)}
-                  className="w-full border border-slate-200 p-3 rounded-lg focus:outline-none focus:border-brand-400 transition-colors" 
+              <div className="w-full border border-slate-200 p-3 rounded-lg focus-within:border-brand-400 transition-colors">
+                <CardElement
+                  options={{
+                    style: {
+                      base: {
+                        fontSize: '16px',
+                        color: '#0f172a',
+                        fontFamily: 'inherit',
+                        '::placeholder': {
+                          color: '#94a3b8',
+                        },
+                      },
+                      invalid: {
+                        color: '#dc2626',
+                      },
+                    },
+                  }}
+                  onChange={(event) => {
+                    setCardComplete(event.complete);
+                    setCardError(event.error?.message || null);
+                  }}
                 />
               </div>
-              {addressErrors.card && <p className="text-xs text-red-500">{addressErrors.card}</p>}
+              {(addressErrors.card || cardError) && (
+                <p className="text-xs text-red-500">{addressErrors.card || cardError}</p>
+              )}
             </div>
           </div>
 
@@ -454,3 +513,4 @@ export const Checkout: React.FC<CheckoutProps> = ({ user, card, onSuccess, onBac
     </div>
   );
 };
+

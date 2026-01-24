@@ -1,0 +1,16 @@
+Create a minimal botanical silhouette illustration using leaves or branches as the primary form.
+Shapes are simple and elegant, with subtle ink-like shadows and clean edges.
+The background is calm and uncluttered, allowing negative space to carry meaning.
+Use a restrained, nature-inspired palette that reflects {{vibe}} in a grounded way.
+No gradients, no text, no photorealism.
+The design should feel respectful and continuous across the card.
+
+---TEXT RULES---
+Text style: classic serif or small caps
+Use for: parents, respect, care
+
+Add the text "{{text}}" in a classic serif font.
+The text sits quietly beneath the botanical form.
+Color is deep green or charcoal from the palette.
+Perfectly legible, dignified.
+The text must be perfectly legible and spelled correctly.

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckCircle, Truck, BellRing, Link } from 'lucide-react';
+import { CheckCircle, Truck, BellRing, Link, Save, UserCircle } from 'lucide-react';
 import { Button } from './Button';
 import { User, Order, NotificationItem } from '../types';
 
@@ -8,6 +8,10 @@ interface SuccessProps {
   order: Order | null;
   notifications: NotificationItem[];
   onCreateAnother: () => void;
+  /** Recipient name for save profile prompt */
+  recipientName?: string;
+  /** Callback when user toggles save profile */
+  onSaveProfile?: (save: boolean) => void;
 }
 
 const NOTIFICATION_LABELS: Record<NotificationItem['type'], string> = {
@@ -17,8 +21,26 @@ const NOTIFICATION_LABELS: Record<NotificationItem['type'], string> = {
   delivery: 'Delivery confirmation email',
 };
 
-export const Success: React.FC<SuccessProps> = ({ user, order, notifications, onCreateAnother }) => {
+export const Success: React.FC<SuccessProps> = ({
+  user,
+  order,
+  notifications,
+  onCreateAnother,
+  recipientName,
+  onSaveProfile,
+}) => {
   const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [saveProfileChecked, setSaveProfileChecked] = useState(false);
+  const [profileSaved, setProfileSaved] = useState(false);
+
+  const handleSaveProfileToggle = () => {
+    const newValue = !saveProfileChecked;
+    setSaveProfileChecked(newValue);
+    if (newValue && onSaveProfile) {
+      onSaveProfile(true);
+      setProfileSaved(true);
+    }
+  };
 
   if (!order) {
     return (
@@ -97,6 +119,47 @@ export const Success: React.FC<SuccessProps> = ({ user, order, notifications, on
                 Estimated arrival: {new Date(order.deliveryEstimate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Save Profile Toggle */}
+        {recipientName && onSaveProfile && !profileSaved && (
+          <div className="bg-brand-50 p-5 rounded-xl mb-8 text-left border border-brand-100">
+            <label className="flex items-start gap-4 cursor-pointer">
+              <div className="relative flex items-center">
+                <input
+                  type="checkbox"
+                  checked={saveProfileChecked}
+                  onChange={handleSaveProfileToggle}
+                  className="sr-only"
+                />
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                  saveProfileChecked
+                    ? 'bg-brand-500 border-brand-500'
+                    : 'bg-white border-slate-300 hover:border-brand-300'
+                }`}>
+                  {saveProfileChecked && <CheckCircle size={12} className="text-white" />}
+                </div>
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 text-sm font-medium text-slate-800">
+                  <UserCircle size={16} className="text-brand-500" />
+                  Save answers for {recipientName}
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Pre-fill vibe and details next time you send them a card
+                </p>
+              </div>
+            </label>
+          </div>
+        )}
+
+        {profileSaved && recipientName && (
+          <div className="bg-green-50 p-4 rounded-xl mb-8 flex items-center gap-3 animate-fade-in border border-green-100">
+            <Save size={18} className="text-green-600" />
+            <span className="text-sm text-green-700">
+              Saved! We'll remember your answers for {recipientName}.
+            </span>
           </div>
         )}
 

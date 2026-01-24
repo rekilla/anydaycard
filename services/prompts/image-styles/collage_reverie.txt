@@ -1,0 +1,16 @@
+Create a mixed-media collage that feels personal and memory-rich.
+Layer torn paper textures, soft shapes, and gentle ephemera into a balanced composition.
+Materials feel handmade and tactile, like a scrapbook assembled over time.
+Colors are warm, slightly faded, and nostalgic, supporting {{vibe}} through emotion rather than literal imagery.
+No text, no faces, no modern gloss.
+Designed to extend cohesively across front, inside, and back.
+
+---TEXT RULES---
+Text style: cut-paper / vintage print
+Use for: friends, nostalgia
+
+Add the text "{{text}}" in a vintage print-style font.
+The text looks like a small paper label placed within the collage.
+Color feels aged and warm.
+Perfectly legible, scrapbook aesthetic.
+The text must be perfectly legible and spelled correctly.

@@ -1,27 +1,28 @@
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+export interface PaymentIntentRequest {
+  amount: number;
+  currency?: string;
+  email?: string;
+  metadata?: Record<string, string>;
+}
 
-export interface CheckoutSession {
+export interface PaymentIntentResponse {
   id: string;
   clientSecret: string;
 }
 
-export interface PaymentResult {
-  paymentIntentId: string;
-  status: 'succeeded' | 'failed';
-}
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
-export const createCheckoutSession = async (email: string, amount: number): Promise<CheckoutSession> => {
-  await delay(600);
-  return {
-    id: `cs_${Math.floor(Math.random() * 900000 + 100000)}`,
-    clientSecret: `cs_secret_${btoa(`${email}:${amount}`).slice(0, 12)}`,
-  };
-};
+export const createPaymentIntent = async (payload: PaymentIntentRequest): Promise<PaymentIntentResponse> => {
+  const response = await fetch(`${API_BASE}/api/stripe/payment-intent`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
 
-export const confirmPayment = async (sessionId: string): Promise<PaymentResult> => {
-  await delay(900);
-  return {
-    paymentIntentId: `pi_${sessionId.slice(3)}`,
-    status: 'succeeded',
-  };
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || 'Unable to create payment intent.');
+  }
+
+  return response.json();
 };

@@ -1,0 +1,16 @@
+Create a flowing abstract watercolor composition with organic, drifting shapes.
+Colors gently bleed into each other with visible translucency and soft edges.
+The movement feels slow and emotional, like a quiet exhale.
+Use a calm, muted palette aligned with {{vibe}}.
+No sharp contrast, no structure, no text.
+Designed as a seamless emotional backdrop for a folded card.
+
+---TEXT RULES---
+Text style: minimal sans-serif
+Use for: emotional but subtle moments
+
+Add the text "{{text}}" in a clean, understated sans-serif font.
+The text is softly embedded into the abstract flow.
+Color is muted and low contrast.
+Perfectly legible, never dominant.
+The text must be perfectly legible and spelled correctly.

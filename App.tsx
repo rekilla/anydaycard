@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { Elements } from '@stripe/react-stripe-js';
+import { loadStripe } from '@stripe/stripe-js';
 import { HashRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { Landing } from './components/Landing';
 import { Wizard } from './components/Wizard';
@@ -9,7 +11,11 @@ import { Success } from './components/Success';
 import { Legal } from './components/Legal';
 import { CalendarModal } from './components/CalendarModal';
 import { SettingsModal } from './components/SettingsModal';
-import { GeneratedCard, User, RecipientProfile, RelationshipType, Order, NotificationItem, CheckoutMeta, OrderStatus } from './types';
+import { RecipientLanding } from './components/RecipientLanding';
+import { GeneratedCard, User, RecipientProfile, RelationshipType, Order, NotificationItem, CheckoutMeta, OrderStatus, CardReferralData } from './types';
+
+const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string | undefined;
+const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
 
 function AppContent() {
   const navigate = useNavigate();
@@ -121,6 +127,17 @@ function AppContent() {
   const handleAnonymousStart = () => {
     if (!user) setUser({ email: '', isAnonymous: true });
     setWizardEntryPoint('/'); // Track that we came from homepage
+    navigate('/create');
+  };
+
+  // Start from Referral (Viral Loop)
+  const handleReferralStart = (referralData?: CardReferralData) => {
+    if (!user) setUser({ email: '', isAnonymous: true });
+    // Store referral source for analytics (already tracked in RecipientLanding)
+    if (referralData) {
+      localStorage.setItem('anyday_referral_card_id', referralData.cardId);
+    }
+    setWizardEntryPoint('/'); // Referral users go back to homepage if they exit
     navigate('/create');
   };
 
@@ -272,6 +289,36 @@ function AppContent() {
     navigate('/');
   };
 
+  // Save Profile (Relationship Intelligence)
+  const handleSaveProfile = (save: boolean) => {
+    if (!save) return;
+
+    const recipientName = wizardInitialAnswers.name || generatedCard?.recipientName;
+    if (!recipientName) return;
+
+    // Find or create recipient and save wizard answers
+    setRecipients(prev => {
+      const existing = prev.find(r => r.name === recipientName);
+      if (existing) {
+        // Update existing with saved answers
+        return prev.map(r => r.name === recipientName ? {
+          ...r,
+          userSaved: true,
+          savedAnswers: {
+            vibe: wizardAnswers.vibe ? (Array.isArray(wizardAnswers.vibe) ? wizardAnswers.vibe : [wizardAnswers.vibe]) : undefined,
+            theirThing: wizardAnswers.theirThing,
+            insideJoke: wizardAnswers.insideJoke,
+            quickTraits: wizardAnswers.quickTraits,
+            sharedMemory: wizardAnswers.sharedMemory,
+            whatYouAdmire: wizardAnswers.whatYouAdmire,
+          },
+        } : r);
+      }
+      // Shouldn't happen since recipient is created at checkout, but handle gracefully
+      return prev;
+    });
+  };
+
   // Checkout & Account Transition Logic
   const handleCheckoutComplete = (email: string, card: GeneratedCard, meta: CheckoutMeta) => {
     // 1. Capture Identity (Anonymous -> Known)
@@ -300,7 +347,9 @@ function AppContent() {
       id: Date.now().toString(),
       name: wizardInitialAnswers.name || card.recipientName || 'Unknown',
       relationshipType: wizardInitialAnswers.relationshipType || RelationshipType.Friend,
-      lastCardDate: new Date().toISOString()
+      lastCardDate: new Date().toISOString(),
+      userSaved: false,
+      createdAt: new Date().toISOString(),
     };
     
     setRecipients(prev => {
@@ -401,11 +450,17 @@ function AppContent() {
             order={orders.find(order => order.id === lastOrderId) || null}
             notifications={notifications.filter(notification => notification.orderId === lastOrderId)}
             onCreateAnother={handleCreateNew}
+            recipientName={wizardInitialAnswers.name || generatedCard?.recipientName}
+            onSaveProfile={handleSaveProfile}
           />
         }
       />
       <Route path="/terms" element={<Legal variant="terms" />} />
       <Route path="/privacy" element={<Legal variant="privacy" />} />
+      <Route
+        path="/reply/:referralCode"
+        element={<RecipientLanding onStartWizard={handleReferralStart} />}
+      />
       <Route 
         path="/create" 
         element={
@@ -463,9 +518,11 @@ function AppContent() {
 
 function App() {
   return (
-    <HashRouter>
-      <AppContent />
-    </HashRouter>
+    <Elements stripe={stripePromise}>
+      <HashRouter>
+        <AppContent />
+      </HashRouter>
+    </Elements>
   );
 }
 

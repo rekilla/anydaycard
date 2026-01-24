@@ -1,0 +1,20 @@
+HOLIDAY SYSTEM LOGIC
+
+PRIORITY ORDER:
+1. Day parameter overrides color + tone
+2. Base art style controls form
+3. Vibe controls emotional intensity
+4. If conflict → choose restraint
+
+CONFLICT RESOLUTION:
+- Holiday + apology? → calm, minimal
+- Holiday + illness? → remove celebration cues
+- Holiday + professional? → letterpress only
+
+LAYER COMPOSITION:
+Base Style (form) + Holiday Overlay (palette/mood) + Vibe (intensity) + Text Rules (if enabled)
+
+NEVER:
+- Mix celebration cues with sensitive occasions
+- Override relationship sensitivity for holiday cheer
+- Use literal holiday imagery when vibe is somber

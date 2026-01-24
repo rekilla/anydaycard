@@ -1,0 +1,16 @@
+Create a modern geometric composition using clean, confident shapes and balanced spacing.
+The design feels bold but calm, with intentional symmetry or near-symmetry.
+Use a limited, carefully chosen color palette that supports {{vibe}} without overpowering the message.
+Edges are crisp, surfaces are matte, and the composition feels editorial and contemporary.
+No gradients, no text, no photorealism.
+Designed as a single visual system that flows seamlessly across the front, inside, and back of the card.
+
+---TEXT RULES---
+Text style: bold sans-serif
+Use for: celebration, milestones
+
+Add the text "{{text}}" in a bold modern sans-serif font.
+The text aligns precisely with the geometric grid.
+Color is a strong accent from the palette.
+Perfectly legible, confident.
+The text must be perfectly legible and spelled correctly.

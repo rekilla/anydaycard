@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, ArrowRight, Check, Sparkles } from 'lucide-react';
 import { Question, RelationshipType, GeneratedCard, DesignOptions, CardFormat, CoverTextPreference } from '../types';
-import { 
-  UNIVERSAL_QUESTIONS, 
-  PARTNER_QUESTIONS, 
-  FRIEND_QUESTIONS, 
+import {
+  UNIVERSAL_QUESTIONS,
+  PARTNER_QUESTIONS,
+  FRIEND_QUESTIONS,
   PARENT_QUESTIONS,
   CHILD_QUESTIONS,
   SIBLING_QUESTIONS,
@@ -12,10 +12,35 @@ import {
   DATING_QUESTIONS,
   GRANDPARENT_QUESTIONS,
   OTHER_QUESTIONS,
-  GENERIC_QUESTIONS 
+  GENERIC_QUESTIONS,
+  // Valentine's Day combos
+  VALENTINES_WIFE_QUESTIONS,
+  VALENTINES_HUSBAND_QUESTIONS,
+  VALENTINES_GIRLFRIEND_QUESTIONS,
+  VALENTINES_BOYFRIEND_QUESTIONS,
+  VALENTINES_PARTNER_QUESTIONS,
+  VALENTINES_CRUSH_QUESTIONS,
+  VALENTINES_FRIEND_QUESTIONS,
+  // Mother's Day combos
+  MOTHERS_DAY_MOM_QUESTIONS,
+  MOTHERS_DAY_WIFE_MOM_QUESTIONS,
+  MOTHERS_DAY_GRANDMOTHER_QUESTIONS,
+  MOTHERS_DAY_MOTHER_IN_LAW_QUESTIONS,
+  // Father's Day combos
+  FATHERS_DAY_DAD_QUESTIONS,
+  FATHERS_DAY_HUSBAND_DAD_QUESTIONS,
+  FATHERS_DAY_GRANDFATHER_QUESTIONS,
+  FATHERS_DAY_FATHER_IN_LAW_QUESTIONS,
+  // Birthday combos
+  BIRTHDAY_PARTNER_QUESTIONS,
+  BIRTHDAY_CHILD_QUESTIONS,
+  BIRTHDAY_FRIEND_QUESTIONS,
+  BIRTHDAY_SIBLING_QUESTIONS,
+  BIRTHDAY_COWORKER_QUESTIONS,
+  BIRTHDAY_MOM_DAD_QUESTIONS,
 } from '../constants';
 import { Button } from './Button';
-import { generateDesignOptions } from '../services/geminiService';
+import { generateDesignOptions, generateMessageOptions } from '../services/geminiService';
 import { getTemplateRecommendations } from '../services/designSystem';
 import { MessageSelection } from './MessageSelection';
 import { TemplateSelection } from './TemplateSelection';
@@ -30,40 +55,6 @@ interface WizardProps {
 }
 
 type WizardPhase = 'questions' | 'review' | 'messages' | 'templates' | 'cardFormat' | 'coverText' | 'designs' | 'designing';
-
-const buildTestMessages = (answers: Record<string, any>, variant: number = 0) => {
-  const name = answers.name || 'there';
-  const rawOccasion = answers.occasion || 'today';
-  const occasionText = typeof rawOccasion === 'string' ? rawOccasion : 'today';
-  const friendlyOccasion = occasionText.toLowerCase().includes('just because') || occasionText.toLowerCase().includes('no reason')
-    ? 'today'
-    : occasionText;
-  const detail = answers.recentMoment || answers.sharedMemory || answers.insideJoke || answers.theirThing || '';
-  const detailSnippet = typeof detail === 'string' && detail.trim().length > 0
-    ? (detail.trim().split('.').shift() || '').slice(0, 80)
-    : '';
-
-  const detailLine = detailSnippet
-    ? `I keep thinking about ${detailSnippet.toLowerCase().startsWith('the') ? detailSnippet : `"${detailSnippet}"`}.`
-    : 'I just wanted to send a note that feels like us.';
-
-  const variants = [
-    [
-      `Hey ${name} - just a quick note to say I'm thinking of you. ${detailLine}`,
-      `Happy ${friendlyOccasion}, ${name}. You make things feel lighter, and I hope today does the same for you.`,
-      `I keep replaying ${detailSnippet ? `"${detailSnippet}"` : 'that little moment we shared'} in my head. It made me smile, so here we are.`,
-      `Just a small card to say: you matter to me, and I'm grateful you're in my life.`,
-    ],
-    [
-      `Hi ${name}, sending a little love your way today.`,
-      `For ${friendlyOccasion}: a reminder that you are appreciated, always.`,
-      `That ${detailSnippet ? detailSnippet : 'memory of us'} still makes me grin. Thanks for being you.`,
-      `No big reason - just because you deserve a note that feels personal and real.`,
-    ],
-  ];
-
-  return variants[variant % variants.length];
-};
 
 export const Wizard: React.FC<WizardProps> = ({ onComplete, onBackToHome, initialAnswers = {} }) => {
   const [phase, setPhase] = useState<WizardPhase>('questions');
@@ -119,13 +110,51 @@ export const Wizard: React.FC<WizardProps> = ({ onComplete, onBackToHome, initia
     setCoverTextPreference(null);
   }, [initialAnswers]);
 
-  // Dynamic Question Logic
+  // Dynamic Question Logic - builds question list based on card type + relationship combo
   useEffect(() => {
-    // Determine which questions to show based on RelationshipType
     const relType = answers['relationshipType'];
+    const specialDay = answers['specialDay'];
+    const lifeEvent = answers['lifeEvent'];
+
+    let comboQuestions: Question[] = [];
     let branchQuestions: Question[] = [];
 
-    if (relType === RelationshipType.Partner) {
+    // COMBO-SPECIFIC QUESTIONS (Card Type + Relationship)
+    // Valentine's Day combos
+    if (specialDay === "Valentine's Day") {
+      if (relType === 'Wife') comboQuestions = VALENTINES_WIFE_QUESTIONS;
+      else if (relType === 'Husband') comboQuestions = VALENTINES_HUSBAND_QUESTIONS;
+      else if (relType === 'Girlfriend') comboQuestions = VALENTINES_GIRLFRIEND_QUESTIONS;
+      else if (relType === 'Boyfriend') comboQuestions = VALENTINES_BOYFRIEND_QUESTIONS;
+      else if (relType === 'Partner') comboQuestions = VALENTINES_PARTNER_QUESTIONS;
+      else if (relType === 'Crush') comboQuestions = VALENTINES_CRUSH_QUESTIONS;
+      else if (relType === 'Friend') comboQuestions = VALENTINES_FRIEND_QUESTIONS;
+    }
+    // Mother's Day combos
+    else if (specialDay === "Mother's Day") {
+      if (relType === 'Mom') comboQuestions = MOTHERS_DAY_MOM_QUESTIONS;
+      else if (relType === 'Wife-Mom') comboQuestions = MOTHERS_DAY_WIFE_MOM_QUESTIONS;
+      else if (relType === 'Grandmother') comboQuestions = MOTHERS_DAY_GRANDMOTHER_QUESTIONS;
+      else if (relType === 'Mother-in-law') comboQuestions = MOTHERS_DAY_MOTHER_IN_LAW_QUESTIONS;
+    }
+    // Father's Day combos
+    else if (specialDay === "Father's Day") {
+      if (relType === 'Dad') comboQuestions = FATHERS_DAY_DAD_QUESTIONS;
+      else if (relType === 'Husband-Dad') comboQuestions = FATHERS_DAY_HUSBAND_DAD_QUESTIONS;
+      else if (relType === 'Grandfather') comboQuestions = FATHERS_DAY_GRANDFATHER_QUESTIONS;
+      else if (relType === 'Father-in-law') comboQuestions = FATHERS_DAY_FATHER_IN_LAW_QUESTIONS;
+    }
+    // Birthday combos
+    else if (lifeEvent === 'Birthday') {
+      if (relType === 'Partner') comboQuestions = BIRTHDAY_PARTNER_QUESTIONS;
+      else if (relType === 'Child') comboQuestions = BIRTHDAY_CHILD_QUESTIONS;
+      else if (relType === 'Friend') comboQuestions = BIRTHDAY_FRIEND_QUESTIONS;
+      else if (relType === 'Sibling') comboQuestions = BIRTHDAY_SIBLING_QUESTIONS;
+      else if (relType === 'Coworker') comboQuestions = BIRTHDAY_COWORKER_QUESTIONS;
+      else if (relType === 'Mom' || relType === 'Dad') comboQuestions = BIRTHDAY_MOM_DAD_QUESTIONS;
+    }
+    // Generic relationship branches (for non-key card types)
+    else if (relType === RelationshipType.Partner) {
       branchQuestions = PARTNER_QUESTIONS;
     } else if (relType === RelationshipType.Friend) {
       branchQuestions = FRIEND_QUESTIONS;
@@ -147,16 +176,19 @@ export const Wizard: React.FC<WizardProps> = ({ onComplete, onBackToHome, initia
       branchQuestions = GENERIC_QUESTIONS;
     }
 
-    // Merge Universal + Branch, filtering out duplicates if any
+    // Merge: Universal + Combo-specific + Branch questions
     const baseIds = new Set(UNIVERSAL_QUESTIONS.map(q => q.id));
+    const comboIds = new Set(comboQuestions.map(q => q.id));
+
     const merged = [
       ...UNIVERSAL_QUESTIONS,
-      ...branchQuestions.filter(q => !baseIds.has(q.id))
+      ...comboQuestions.filter(q => !baseIds.has(q.id)),
+      ...branchQuestions.filter(q => !baseIds.has(q.id) && !comboIds.has(q.id))
     ];
 
     const filtered = merged.filter(q => !q.condition || q.condition(answers));
     setQuestions(filtered);
-  }, [answers, answers['relationshipType']]);
+  }, [answers, answers['relationshipType'], answers['specialDay'], answers['lifeEvent']]);
 
   useEffect(() => {
     if (currentStepIndex > questions.length - 1) {
@@ -279,10 +311,15 @@ export const Wizard: React.FC<WizardProps> = ({ onComplete, onBackToHome, initia
     const nextCount = regenerationCount + 1;
     setRegenerationCount(nextCount);
     setIsGeneratingMessages(true);
-    setTimeout(() => {
-      setGeneratedMessages(buildTestMessages(answers, nextCount));
+    try {
+      const messages = await generateMessageOptions(answers, nextCount, generatedMessages);
+      setGeneratedMessages(messages);
+    } catch (error) {
+      console.error('Failed to regenerate messages:', error);
+      alert('Failed to generate new messages. Please try again.');
+    } finally {
       setIsGeneratingMessages(false);
-    }, 400);
+    }
   };
 
   const hasAnswer = (value: any) => {
@@ -440,16 +477,21 @@ export const Wizard: React.FC<WizardProps> = ({ onComplete, onBackToHome, initia
             <Button variant="outline" onClick={() => setPhase('questions')}>
               Back
             </Button>
-            <Button 
-              size="lg" 
-              onClick={() => {
+            <Button
+              size="lg"
+              onClick={async () => {
                 setIsGeneratingMessages(true);
-                setTimeout(() => {
+                try {
                   setRegenerationCount(0);
-                  setGeneratedMessages(buildTestMessages(answers, 0));
+                  const messages = await generateMessageOptions(answers, 0, []);
+                  setGeneratedMessages(messages);
                   setPhase('messages');
+                } catch (error) {
+                  console.error('Failed to generate messages:', error);
+                  alert('Failed to generate messages. Please try again.');
+                } finally {
                   setIsGeneratingMessages(false);
-                }, 300);
+                }
               }}
               isLoading={isGeneratingMessages}
             >

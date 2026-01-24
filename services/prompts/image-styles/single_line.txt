@@ -1,0 +1,16 @@
+Create an elegant single-line drawing made from one continuous, expressive line.
+The line feels emotional and intentional, with gentle curves and breathing space.
+The background is off-white or softly tinted, resembling fine art paper.
+The mood subtly reflects {{vibe}} through movement rather than detail.
+No shading, no color complexity, no text.
+Designed to feel intimate and artistic across the full card layout.
+
+---TEXT RULES---
+Text style: handwritten line text
+Use for: intimate, artistic cards
+
+Add the text "{{text}}" in a loose handwritten line style.
+The lettering feels like it was drawn with the same pen as the illustration.
+Ink color is soft charcoal.
+Perfectly legible and emotionally restrained.
+The text must be perfectly legible and spelled correctly.

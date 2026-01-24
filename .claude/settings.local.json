@@ -6,7 +6,12 @@
       "Bash(npx tsc:*)",
       "Bash(taskkill:*)",
       "Bash(pkill:*)",
-      "Bash(timeout /t 3)"
+      "Bash(timeout /t 3)",
+      "Bash(npx skills:*)",
+      "Bash(npx:*)",
+      "Bash(curl:*)",
+      "Bash(npm install:*)",
+      "Bash(findstr:*)"
     ]
   }
 }

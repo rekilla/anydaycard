@@ -1,3 +1,12 @@
+import { getVibeMapping, getAllowedStyles } from './vibeStyleMapping';
+import {
+  mapSpecialDayToHolidayId,
+  getHolidayOverlay,
+  getHolidayRecommendedStyles,
+  resolveHolidayConflict,
+  HolidayId,
+} from './prompts';
+
 export interface DesignStarter {
   id: string;
   name: string;
@@ -65,6 +74,24 @@ export const DESIGN_STARTERS: Record<string, DesignStarter> = {
     name: 'Collage Reverie',
     description: 'Mixed media style, torn paper edges, vintage feel. Great for nostalgia and storytelling.',
     imagePromptSuffix: 'mixed media collage, torn paper texture, vintage aesthetic, layered composition, artistic scrapbooking style, analog feel'
+  },
+  letterpress_minimal: {
+    id: 'letterpress_minimal',
+    name: 'Letterpress Minimal',
+    description: 'Premium letterpress aesthetic with deep impression on thick paper. Single muted color, abundant negative space, timeless and serious. Best for sincere gratitude, apologies requiring ownership, and professional occasions.',
+    imagePromptSuffix: 'letterpress printing style, debossed impression, thick cotton paper, single ink color, cream background, minimal design, elegant simplicity, print craftsmanship'
+  },
+  night_sky_quiet: {
+    id: 'night_sky_quiet',
+    name: 'Night Sky Quiet',
+    description: 'Serene constellation art with deep blues and gentle starlight. Evokes presence across distance, patience, and comfort. Best for missing someone, get well wishes, and encouragement during difficult times.',
+    imagePromptSuffix: 'night sky illustration, constellation pattern, deep indigo blue, scattered stars, watercolor style, cosmic atmosphere, quiet and vast, comforting presence'
+  },
+  playful_doodle: {
+    id: 'playful_doodle',
+    name: 'Playful Doodle',
+    description: 'Charming hand-drawn sketches with abundant white space. Light humor, human and imperfect. Best for just because notes, casual celebrations, friend cards with funny vibes, and early dating.',
+    imagePromptSuffix: 'hand-drawn doodle illustration, pen sketch style, lots of white space, whimsical marginalia, simple line art, cheerful and light, notebook aesthetic'
   }
 };
 
@@ -90,49 +117,49 @@ export const CARD_CATEGORIES: Record<CardCategoryId, CardCategory> = {
     id: 'love_romance',
     label: 'Love & Romance',
     description: 'Tender, intimate, and emotionally warm designs.',
-    templateIds: ['floral_whisper', 'textural_motif', 'icon_study', 'single_line'],
+    templateIds: ['floral_whisper', 'textural_motif', 'icon_study', 'single_line', 'night_sky_quiet'],
   },
   encouragement_support: {
     id: 'encouragement_support',
     label: 'Encouragement & Support',
     description: 'Hopeful, steady, and uplifting visuals.',
-    templateIds: ['painterly_horizon', 'lyrical_abstract', 'icon_study', 'negative_space'],
+    templateIds: ['night_sky_quiet', 'painterly_horizon', 'lyrical_abstract', 'letterpress_minimal', 'icon_study', 'negative_space'],
   },
   apology: {
     id: 'apology',
     label: 'Apology / I Messed Up',
     description: 'Soft, quiet, and respectful repair.',
-    templateIds: ['floral_whisper', 'botanical_silhouette', 'lyrical_abstract', 'negative_space'],
+    templateIds: ['letterpress_minimal', 'floral_whisper', 'botanical_silhouette', 'lyrical_abstract', 'negative_space'],
   },
   gratitude: {
     id: 'gratitude',
     label: 'Gratitude / Thank You',
     description: 'Thoughtful, crafted, and appreciative.',
-    templateIds: ['botanical_silhouette', 'textural_motif', 'floral_whisper', 'icon_study'],
+    templateIds: ['letterpress_minimal', 'botanical_silhouette', 'textural_motif', 'floral_whisper', 'icon_study'],
   },
   celebration: {
     id: 'celebration',
     label: 'Celebration (Birthday / Milestones)',
     description: 'Bright, lively, and celebratory energy.',
-    templateIds: ['geometric_poise', 'collage_reverie', 'floral_whisper', 'icon_study'],
+    templateIds: ['geometric_poise', 'collage_reverie', 'playful_doodle', 'floral_whisper', 'icon_study'],
   },
   missing_you: {
     id: 'missing_you',
     label: 'Missing You / Thinking of You',
     description: 'Soft presence and emotional closeness.',
-    templateIds: ['painterly_horizon', 'lyrical_abstract', 'icon_study', 'negative_space'],
+    templateIds: ['night_sky_quiet', 'painterly_horizon', 'lyrical_abstract', 'icon_study', 'negative_space'],
   },
   get_well: {
     id: 'get_well',
     label: 'Get Well / Going Through Something',
     description: 'Gentle, patient, and caring.',
-    templateIds: ['painterly_horizon', 'floral_whisper', 'botanical_silhouette', 'lyrical_abstract'],
+    templateIds: ['night_sky_quiet', 'painterly_horizon', 'floral_whisper', 'botanical_silhouette', 'lyrical_abstract'],
   },
   just_because: {
     id: 'just_because',
     label: 'Just Because',
     description: 'Easy, personal, and playful by default.',
-    templateIds: ['icon_study', 'floral_whisper', 'textural_motif', 'collage_reverie'],
+    templateIds: ['playful_doodle', 'icon_study', 'floral_whisper', 'textural_motif', 'collage_reverie'],
   },
 };
 
@@ -183,68 +210,223 @@ export const getTemplateRecommendations = (answers: Record<string, any>) => {
   return { category, templates };
 };
 
+/**
+ * Recommend a design starter using the deterministic vibe-to-style mapping.
+ *
+ * SMART EMOTIONAL RISK RULE:
+ * "If emotional risk is high, reduce visual emotion"
+ * - Apology → letterpress_minimal (serious, ownership)
+ * - Illness/Get Well → night_sky_quiet (patient, comforting)
+ * - Professional occasions → letterpress_minimal (respectful distance)
+ *
+ * This override takes precedence over vibe-based mapping when applicable.
+ *
+ * Fallback order:
+ * 1. Smart emotional risk rule (if applicable)
+ * 2. Primary style from vibe mapping
+ * 3. Secondary style from vibe mapping
+ * 4. Fallback style from vibe mapping
+ * 5. Ultimate fallback: floral_whisper
+ */
 export const recommendDesignStarter = (answers: Record<string, any>): DesignStarter => {
-  const occasion = (answers['occasion'] || '').toLowerCase();
   const vibes = Array.isArray(answers['vibe']) ? answers['vibe'] : [answers['vibe'] || ''];
-  const vibeStr = vibes.join(' ').toLowerCase();
+  const occasion = (answers['occasion'] || '').toLowerCase();
   const relationship = (answers['relationshipType'] || '').toLowerCase();
-  
-  // Helper: Does the user have specific inputs?
-  const hasSpecifics = (answers['insideJoke'] && answers['insideJoke'].length > 3) || 
-                       (answers['recentMoment'] && answers['recentMoment'].length > 10) ||
-                       (answers['theirThing'] && answers['theirThing'].length > 10) ||
-                       (answers['anyDetails'] && answers['anyDetails'].length > 10);
+  const vibeStr = vibes.join(' ').toLowerCase();
 
-  // --- LOGIC MAPPING ---
-
-  // 1. Apology / Messed Up
-  if (occasion.includes('apology') || occasion.includes('messed up') || vibeStr.includes('apologetic')) {
-    if (vibeStr.includes('heartfelt')) return DESIGN_STARTERS.floral_whisper;
-    return DESIGN_STARTERS.negative_space; // Humble, quiet
-  }
-
-  // 2. Love / Partner / Anniversary
-  if (occasion.includes('anniversary') || relationship.includes('partner') || relationship.includes('spouse') || relationship.includes('dating')) {
-    if (hasSpecifics && (vibeStr.includes('funny') || vibeStr.includes('weird'))) {
-      return DESIGN_STARTERS.icon_study; // Focus on the specific joke object
+  // SMART RULE 1: Apology → Letterpress (serious ownership)
+  if (
+    occasion.includes('messed up') ||
+    occasion.includes('apologize') ||
+    vibeStr.includes('apologetic')
+  ) {
+    if (DESIGN_STARTERS['letterpress_minimal']) {
+      return DESIGN_STARTERS['letterpress_minimal'];
     }
-    if (vibeStr.includes('nostalgic')) return DESIGN_STARTERS.textural_motif;
-    if (vibeStr.includes('spicy') || vibeStr.includes('heartfelt')) return DESIGN_STARTERS.single_line;
-    return DESIGN_STARTERS.floral_whisper;
   }
 
-  // 3. Celebration / Birthday
-  if (occasion.includes('birthday') || occasion.includes('congratulations') || occasion.includes('holiday') || occasion.includes('achieved')) {
-    if (vibeStr.includes('weird') || vibeStr.includes('funny')) return DESIGN_STARTERS.collage_reverie;
-    if (vibeStr.includes('nostalgic')) return DESIGN_STARTERS.textural_motif;
-    if (vibeStr.includes('heartfelt')) return DESIGN_STARTERS.floral_whisper;
-    return DESIGN_STARTERS.geometric_poise; // Default modern celebration
+  // SMART RULE 2: Illness/Get Well → Night Sky (comforting presence)
+  if (
+    occasion.includes('going through') ||
+    occasion.includes('get well') ||
+    occasion.includes('sick') ||
+    occasion.includes('difficult')
+  ) {
+    if (DESIGN_STARTERS['night_sky_quiet']) {
+      return DESIGN_STARTERS['night_sky_quiet'];
+    }
   }
 
-  // 4. Support / Missing Someone
-  if (occasion.includes('going through') || occasion.includes('miss')) {
-    if (vibeStr.includes('encouraging')) return DESIGN_STARTERS.painterly_horizon; // Horizon = Hope
-    return DESIGN_STARTERS.lyrical_abstract; // Calm, safe
+  // SMART RULE 3: Professional → Letterpress (respectful distance)
+  if (
+    relationship.includes('coworker') ||
+    relationship.includes('professional') ||
+    relationship.includes('boss')
+  ) {
+    if (DESIGN_STARTERS['letterpress_minimal']) {
+      return DESIGN_STARTERS['letterpress_minimal'];
+    }
   }
 
-  // 5. Gratitude
-  if (occasion.includes('thank') || vibeStr.includes('grateful')) {
-    if (vibeStr.includes('professional') || relationship.includes('coworker')) return DESIGN_STARTERS.botanical_silhouette;
-    return DESIGN_STARTERS.textural_motif;
+  // Use the deterministic vibe-to-style mapping
+  const mapping = getVibeMapping(vibes);
+
+  // Try primary allowed style
+  const primaryStyleId = mapping.styleConstraints.primaryStyle;
+  if (DESIGN_STARTERS[primaryStyleId]) {
+    return DESIGN_STARTERS[primaryStyleId];
   }
 
-  // 6. Professional / Coworker (General)
-  if (relationship.includes('coworker') || relationship.includes('professional')) {
-    return DESIGN_STARTERS.geometric_poise;
+  // Try secondary allowed style
+  const secondaryStyleId = mapping.styleConstraints.secondaryStyle;
+  if (DESIGN_STARTERS[secondaryStyleId]) {
+    return DESIGN_STARTERS[secondaryStyleId];
   }
 
-  // 7. General Vibe Fallbacks
-  if (vibeStr.includes('encouraging')) return DESIGN_STARTERS.painterly_horizon;
-  if (vibeStr.includes('weird') || vibeStr.includes('playful')) return DESIGN_STARTERS.collage_reverie;
-  if (vibeStr.includes('funny')) return DESIGN_STARTERS.icon_study;
-  if (vibeStr.includes('proud')) return DESIGN_STARTERS.geometric_poise;
-  if (vibeStr.includes('calm') || vibeStr.includes('nature')) return DESIGN_STARTERS.floral_whisper;
-  
-  // Ultimate Fallback
+  // Try fallback style
+  const fallbackStyleId = mapping.styleConstraints.fallbackStyle;
+  if (DESIGN_STARTERS[fallbackStyleId]) {
+    return DESIGN_STARTERS[fallbackStyleId];
+  }
+
+  // Ultimate fallback
   return DESIGN_STARTERS.floral_whisper;
+};
+
+/**
+ * Get all allowed styles for the given answers (for template selection UI)
+ */
+export const getAllowedStylesForAnswers = (answers: Record<string, any>): DesignStarter[] => {
+  const vibes = Array.isArray(answers['vibe']) ? answers['vibe'] : [answers['vibe'] || ''];
+  const allowedIds = getAllowedStyles(vibes);
+
+  return allowedIds
+    .map(id => DESIGN_STARTERS[id])
+    .filter((starter): starter is DesignStarter => Boolean(starter));
+};
+
+// ============================================
+// HOLIDAY-AWARE RECOMMENDATIONS
+// ============================================
+
+export interface HolidayAwareRecommendation {
+  primary: DesignStarter;
+  alternatives: DesignStarter[];
+  holidayContext?: {
+    holidayId: HolidayId;
+    hasConflict: boolean;
+    explanation?: string;
+  };
+}
+
+/**
+ * Get holiday-aware template recommendations
+ *
+ * Priority order:
+ * 1. Conflict resolution forced template (if applicable)
+ * 2. Holiday best styles intersection with vibe allowed styles
+ * 3. Vibe-based recommendations (fallback)
+ *
+ * This function respects the layer composition:
+ * Base Style (form) + Holiday Overlay (palette/mood) + Vibe (intensity)
+ */
+export const getHolidayAwareRecommendations = (
+  answers: Record<string, any>
+): HolidayAwareRecommendation => {
+  const vibes = Array.isArray(answers['vibe']) ? answers['vibe'] : [answers['vibe'] || ''];
+
+  // Detect holiday
+  const holidayId = mapSpecialDayToHolidayId(
+    answers.specialDay || answers.lifeEvent || ''
+  );
+
+  // Check for conflicts first
+  if (holidayId) {
+    const resolution = resolveHolidayConflict(holidayId, answers);
+
+    // If conflict forces a template, use it
+    if (resolution.hasConflict && resolution.forcedTemplateId) {
+      const forcedTemplate = DESIGN_STARTERS[resolution.forcedTemplateId];
+      if (forcedTemplate) {
+        // Get alternatives from vibe mapping for variety
+        const vibeStyles = getAllowedStyles(vibes);
+        const alternatives = vibeStyles
+          .filter(id => id !== resolution.forcedTemplateId)
+          .slice(0, 2)
+          .map(id => DESIGN_STARTERS[id])
+          .filter((t): t is DesignStarter => Boolean(t));
+
+        return {
+          primary: forcedTemplate,
+          alternatives,
+          holidayContext: {
+            holidayId,
+            hasConflict: true,
+            explanation: resolution.explanation,
+          },
+        };
+      }
+    }
+
+    // No conflict: intersect holiday best styles with vibe allowed styles
+    const holidayStyleIds = getHolidayRecommendedStyles(holidayId);
+    const vibeStyles = getAllowedStyles(vibes);
+
+    if (holidayStyleIds.length > 0) {
+      // Find intersection
+      const intersection = vibeStyles.filter(id => holidayStyleIds.includes(id));
+
+      if (intersection.length > 0) {
+        // Use first intersection as primary
+        const primary = DESIGN_STARTERS[intersection[0]];
+        const alternatives = intersection
+          .slice(1, 3)
+          .map(id => DESIGN_STARTERS[id])
+          .filter((t): t is DesignStarter => Boolean(t));
+
+        if (primary) {
+          return {
+            primary,
+            alternatives,
+            holidayContext: {
+              holidayId,
+              hasConflict: false,
+            },
+          };
+        }
+      }
+
+      // No intersection: prefer holiday styles but include vibe alternatives
+      const holidayPrimary = DESIGN_STARTERS[holidayStyleIds[0]];
+      if (holidayPrimary) {
+        const alternatives = vibeStyles
+          .slice(0, 2)
+          .map(id => DESIGN_STARTERS[id])
+          .filter((t): t is DesignStarter => Boolean(t));
+
+        return {
+          primary: holidayPrimary,
+          alternatives,
+          holidayContext: {
+            holidayId,
+            hasConflict: false,
+          },
+        };
+      }
+    }
+  }
+
+  // Fallback: use existing vibe-based recommendation
+  const recommended = recommendDesignStarter(answers);
+  const vibeStyles = getAllowedStyles(vibes);
+  const alternatives = vibeStyles
+    .filter(id => id !== recommended.id)
+    .slice(0, 2)
+    .map(id => DESIGN_STARTERS[id])
+    .filter((t): t is DesignStarter => Boolean(t));
+
+  return {
+    primary: recommended,
+    alternatives,
+  };
 };
