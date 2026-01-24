@@ -1,7 +1,7 @@
-Create a minimal still-life illustration featuring a single symbolic object, optionally inspired by {{theirThing}} if provided.
+Create a minimal still-life illustration featuring a single symbolic object.
 The object is isolated and centered, surrounded by calm negative space.
 Lighting is soft and studio-like, with a subtle shadow grounding the object.
-Use a simple, harmonious color palette that reflects {{vibe}} without distraction.
+Use a simple, harmonious color palette. {{colorPalette}}
 No background details, no text, no photorealism.
 The design should feel timeless and extend cleanly across front, inside, and back.
 

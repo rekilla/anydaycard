@@ -17,11 +17,28 @@ export {
   TEMPLATE_IMAGE_CONFIGS,
   getTemplateModifiers,
   buildImagePrompt,
+  buildStaticImagePrompt,
   getFallbackPrompts,
   buildNegativePrompt,
   getEffectiveTemplateId,
   getHolidayOverlayInfo,
 } from './imagePrompts';
+
+// Re-export static subjects
+export {
+  STATIC_SUBJECTS,
+  getStaticSubjects,
+  getSubjectPrompt,
+} from './staticSubjects';
+
+// Re-export color palettes
+export {
+  VIBE_PALETTES,
+  HOLIDAY_PALETTES,
+  DEFAULT_PALETTE,
+  resolveColorPalette,
+  getColorPaletteModifier,
+} from './colorPalettes';
 
 // Re-export holiday overlay system
 export {
@@ -49,6 +66,7 @@ export {
 export {
   replacePlaceholders,
   buildPlaceholderContext,
+  buildColorPaletteContext,
   hasPlaceholders,
   getPlaceholderKeys,
 } from './placeholderUtils';

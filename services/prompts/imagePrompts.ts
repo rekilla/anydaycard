@@ -1,7 +1,8 @@
 import { ImagePromptConfig, HolidayId } from './types';
-import { replacePlaceholders, buildPlaceholderContext } from './placeholderUtils';
+import { replacePlaceholders, buildColorPaletteContext } from './placeholderUtils';
 import { getHolidayOverlay, mapSpecialDayToHolidayId } from './holidayOverlays';
 import { resolveHolidayConflict } from './holidayConflictResolver';
+import { getSubjectPrompt } from './staticSubjects';
 
 // Import style prompts from .txt files (Vite ?raw imports)
 import floralWhisperStyle from './image-styles/floral_whisper.txt?raw';
@@ -196,6 +197,78 @@ export function getTemplateModifiers(templateId: string): string[] {
 }
 
 /**
+ * Build the final image prompt using STATIC subjects
+ * User info only affects color palette via {{colorPalette}} placeholder
+ *
+ * @param templateId - Design template ID
+ * @param position - 'front' or 'back' of card
+ * @param subjectIndex - 0 or 1 (which of the 2 static subjects to use)
+ * @param answers - User wizard answers (for color palette resolution)
+ * @param coverTextPreference - Whether to leave space for text
+ */
+export function buildStaticImagePrompt(
+  templateId: string,
+  position: 'front' | 'back',
+  subjectIndex: 0 | 1,
+  answers?: Record<string, unknown>,
+  coverTextPreference?: 'text-on-image' | 'design-only' | null
+): string {
+  const config = TEMPLATE_IMAGE_CONFIGS[templateId];
+  const positionMods = POSITION_MODIFIERS[position];
+
+  // Get static subject from predefined list
+  const subjectPrompt = getSubjectPrompt(templateId, position, subjectIndex);
+
+  // Build color palette context from vibe + holiday
+  const context = buildColorPaletteContext(answers || {});
+
+  // Detect holiday from answers
+  const holidayId = mapSpecialDayToHolidayId(
+    (answers?.specialDay as string) || (answers?.lifeEvent as string) || ''
+  );
+
+  // Resolve any conflicts between holiday and sensitive occasions
+  const conflictResolution = resolveHolidayConflict(holidayId, answers || {});
+
+  const parts: string[] = [subjectPrompt];
+
+  // LAYER 1: Base Style Modifiers (FORM)
+  // These control the structural/artistic style
+  // {{colorPalette}} placeholder is replaced with resolved color palette
+  if (config?.styleModifiers) {
+    let styleString = config.styleModifiers.join(', ');
+    styleString = replacePlaceholders(styleString, context);
+    if (styleString) {
+      parts.push(styleString);
+    }
+  }
+
+  // LAYER 2: Holiday Overlay (PALETTE/MOOD)
+  // These modify color and emotional treatment WITHOUT changing form
+  if (conflictResolution.resolvedOverlay?.visualTreatment) {
+    parts.push(conflictResolution.resolvedOverlay.visualTreatment);
+  }
+
+  // LAYER 3: Position-specific modifiers
+  parts.push(positionMods.join(', '));
+
+  // Add cover text preference for front only
+  if (position === 'front' && coverTextPreference) {
+    parts.push(COVER_TEXT_MODIFIERS[coverTextPreference]);
+  }
+
+  // Add quality enhancers
+  parts.push(IMAGE_BASE_SETTINGS.quality);
+  parts.push(IMAGE_BASE_SETTINGS.lighting);
+  parts.push(IMAGE_BASE_SETTINGS.aesthetic);
+
+  // Always add no-text instruction last (important constraint)
+  parts.push(IMAGE_BASE_SETTINGS.noText);
+
+  return parts.join(', ');
+}
+
+/**
  * Build the final image prompt by combining:
  * 1. Subject prompt (what to draw)
  * 2. Base style modifiers (FORM - how it looks structurally)
@@ -203,7 +276,7 @@ export function getTemplateModifiers(templateId: string): string[] {
  * 4. Position modifiers
  * 5. Quality enhancers
  *
- * Layer composition: Base Style (form) + Holiday Overlay (palette/mood) + Vibe (intensity)
+ * @deprecated Use buildStaticImagePrompt instead - this is kept for backward compatibility
  */
 export function buildImagePrompt(
   subjectPrompt: string,
@@ -215,8 +288,8 @@ export function buildImagePrompt(
   const config = TEMPLATE_IMAGE_CONFIGS[templateId];
   const positionMods = POSITION_MODIFIERS[position];
 
-  // Build placeholder context from user answers
-  const context = buildPlaceholderContext(answers || {}, subjectPrompt);
+  // Build color palette context from vibe + holiday
+  const context = buildColorPaletteContext(answers || {});
 
   // Detect holiday from answers
   const holidayId = mapSpecialDayToHolidayId(

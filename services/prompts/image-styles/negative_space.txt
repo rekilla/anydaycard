@@ -1,7 +1,7 @@
 Create a minimalist fine-art composition dominated by negative space.
 A single subtle element or form slowly emerges from the emptiness, carrying emotional weight through restraint.
 Contrast is gentle and intentional, never harsh.
-The color palette is extremely limited and chosen to reflect {{vibe}} in a quiet, mature way.
+The color palette is extremely limited. {{colorPalette}}
 No decoration, no text, no clutter.
 The design should feel contemplative and cohesive across the entire card layout.
 

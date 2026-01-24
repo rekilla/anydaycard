@@ -1,8 +1,10 @@
 import { PlaceholderContext } from './types';
+import { getColorPaletteModifier } from './colorPalettes';
+import { mapSpecialDayToHolidayId } from './holidayOverlays';
 
 /**
  * Replace placeholders in a template string with actual values
- * Placeholders use {{key}} syntax, e.g., {{their_thing}}, {{vibe}}
+ * Placeholders use {{key}} syntax, e.g., {{colorPalette}}
  *
  * If a placeholder has no value, it's removed cleanly (no leftover commas or spaces)
  */
@@ -28,8 +30,34 @@ export function replacePlaceholders(
 }
 
 /**
+ * Build a simplified PlaceholderContext with just colorPalette
+ * Color palette is resolved from vibe + holiday
+ */
+export function buildColorPaletteContext(
+  answers: Record<string, unknown>
+): PlaceholderContext {
+  // Extract vibes
+  const vibes = Array.isArray(answers.vibe)
+    ? (answers.vibe as string[])
+    : [(answers.vibe as string) || 'Heartfelt'];
+
+  // Detect holiday from answers
+  const holidayId = mapSpecialDayToHolidayId(
+    (answers.specialDay as string) || (answers.lifeEvent as string) || ''
+  );
+
+  // Resolve color palette
+  const colorPaletteModifier = getColorPaletteModifier(vibes, holidayId);
+
+  return {
+    colorPalette: colorPaletteModifier,
+  };
+}
+
+/**
  * Build a PlaceholderContext from user wizard answers
  * Maps answer fields to placeholder keys
+ * @deprecated Use buildColorPaletteContext instead - this is kept for backward compatibility
  */
 export function buildPlaceholderContext(
   answers: Record<string, unknown>,

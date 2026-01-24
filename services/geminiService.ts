@@ -7,8 +7,8 @@ import {
   TEMPLATE_GENERATION_INSTRUCTION,
   ART_DIRECTION_INSTRUCTION,
   getArtDirectionInstruction,
-  buildImagePrompt,
-  getFallbackPrompts,
+  buildStaticImagePrompt,
+  getSubjectPrompt,
   getEffectiveTemplateId,
   getHolidayOverlayInfo,
 } from "./prompts";
@@ -307,8 +307,6 @@ export const generateDesignOptions = async (
     coverTextPreference?: CoverTextPreference | null;
   }
 ): Promise<DesignOptions> => {
-  const model = TEXT_MODEL;
-
   // Get effective template (may be overridden by holiday conflict resolution)
   // e.g., Holiday + apology → letterpress_minimal
   const { templateId: effectiveTemplateId, wasOverridden, reason } =
@@ -324,158 +322,48 @@ export const generateDesignOptions = async (
     console.info(`[Holiday Overlay] Detected: ${holidayInfo.holidayId}, conflict: ${holidayInfo.conflictResolution.hasConflict}`);
   }
 
-  const template = DESIGN_STARTERS[effectiveTemplateId] || recommendDesignStarter(answers);
-  const cardFormat = preferences?.cardFormat ?? null;
   const coverTextPreference = preferences?.coverTextPreference ?? null;
 
-  const toneNote = isHeavilyEdited
-    ? "Prioritize the selected message tone over the original vibe if they conflict."
-    : "Balance the selected message tone with the user's vibe choices.";
-
-  const cardFormatLabel = cardFormat === 'book-open'
-    ? 'Book open (folded card)'
-    : cardFormat === 'single-card'
-      ? 'Single card (postcard style)'
-      : 'Unspecified';
-
-  const coverTextGuidance = coverTextPreference === 'text-on-image'
-    ? 'Front design should leave clear space for a short cover line. Do not include any text.'
-    : 'Front design should be image-only with no reserved text space. Do not include any text.';
-
-  const detailLines = [
-    answers.recentMoment ? `Recent moment: "${answers.recentMoment}"` : "",
-    answers.theirThing ? `Their thing: "${answers.theirThing}"` : "",
-    answers.insideJoke ? `Inside joke: "${answers.insideJoke}"` : "",
-    answers.sharedMemory ? `Shared memory: "${answers.sharedMemory}"` : "",
-    answers.whatYouAdmire ? `Admire: "${answers.whatYouAdmire}"` : "",
-    answers.partnerSubtype ? `Partner subtype: "${answers.partnerSubtype}"` : "",
-    answers.duration ? `Relationship duration: "${answers.duration}"` : "",
-    Array.isArray(answers.quickTraits) && answers.quickTraits.length > 0
-      ? `Traits: ${answers.quickTraits.join(', ')}`
-      : "",
-    answers.anyDetails ? `Details: "${answers.anyDetails}"` : "",
-  ].filter(Boolean);
-
-  // Determine the occasion based on cardType for design
-  const getDesignOccasion = () => {
-    if (answers.cardType === 'special_day' && answers.specialDay) {
-      return answers.specialDay;
-    }
-    if (answers.cardType === 'life_event' && answers.lifeEvent) {
-      return answers.lifeEvent;
-    }
-    return answers.occasion || 'Unknown';
-  };
-
-  const designOccasion = getDesignOccasion();
-
-  const prompt = `
-    Template: ${template.name}
-    Template Description: ${template.description}
-
-    Context:
-    - Recipient: ${answers.name || 'Unknown'}
-    - Relationship: ${answers.relationshipType || 'Unknown'}
-    - Card Type: ${answers.cardType === 'special_day' ? 'Special Day/Holiday' : answers.cardType === 'life_event' ? 'Life Event' : 'Personal'}
-    - Occasion: ${designOccasion}
-    - Vibe: ${Array.isArray(answers.vibe) ? answers.vibe.join(', ') : answers.vibe || 'Unspecified'}
-    - Selected Message: "${selectedMessage}"
-    - Card format: ${cardFormatLabel}
-    - Cover text preference: ${coverTextPreference || 'unspecified'}
-
-    Specific details (use when possible):
-    ${detailLines.length > 0 ? detailLines.join('\n') : 'No extra details provided.'}
-
-    ${toneNote}
-    ${coverTextGuidance}
-
-    If this is for a specific holiday (like Valentine's Day, Christmas, etc.), incorporate subtle thematic elements that fit the occasion.
-
-    Return two front prompts and two back prompts.
-  `;
-
-  let frontPrompts: string[] = [];
-  let backPrompts: string[] = [];
-
-  try {
-    const response = await ai.models.generateContent({
-      model,
-      contents: prompt,
-      config: {
-        systemInstruction: TEMPLATE_GENERATION_INSTRUCTION,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            frontPrompts: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING },
-            },
-            backPrompts: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING },
-            },
-          },
-        },
-      },
-    });
-
-    const json = JSON.parse(response.text || "{}");
-    frontPrompts = Array.isArray(json.frontPrompts) ? json.frontPrompts : [];
-    backPrompts = Array.isArray(json.backPrompts) ? json.backPrompts : [];
-  } catch (error) {
-    console.warn("Prompt generation failed, using fallback prompts.", error);
-  }
-
-  if (frontPrompts.length < 2) {
-    frontPrompts = [
-      `A single meaningful object symbolizing ${answers.occasion || 'this moment'}, thoughtfully arranged`,
-      `A warm, minimalist scene that reflects ${answers.relationshipType || 'your relationship'} and quiet connection`,
-    ];
-  }
-
-  if (backPrompts.length < 2) {
-    backPrompts = [
-      'Subtle abstract shapes with generous negative space and soft texture',
-      'A gentle gradient wash with faint organic patterns and calm movement',
-    ];
-  }
-
+  // Generate front design options using STATIC subjects
+  // No Gemini call - subjects are predefined per template
+  // User info (vibe + holiday) only affects color palette
   const frontOptions: DesignOption[] = [];
   for (let i = 0; i < 2; i += 1) {
-    const basePrompt = frontPrompts[i] || frontPrompts[0];
-    // Use buildImagePrompt with effectiveTemplateId (holiday-aware) and answers for personalization
-    // Holiday overlay is automatically applied inside buildImagePrompt based on answers.specialDay
-    const finalPrompt = buildImagePrompt(
-      basePrompt,
+    const subjectIndex = i as 0 | 1;
+    // Build prompt using static subject + color palette from vibe/holiday
+    const finalPrompt = buildStaticImagePrompt(
       effectiveTemplateId,
       'front',
+      subjectIndex,
       answers,
       coverTextPreference
     );
     const image = await generateImageFromPrompt(finalPrompt);
+    // Store the static subject for reference
+    const staticSubject = getSubjectPrompt(effectiveTemplateId, 'front', subjectIndex);
     frontOptions.push({
       id: `front-${i + 1}`,
       image,
-      prompt: basePrompt,
+      prompt: staticSubject,
     });
   }
 
+  // Generate back design options using STATIC subjects
   const backOptions: DesignOption[] = [];
   for (let i = 0; i < 2; i += 1) {
-    const basePrompt = backPrompts[i] || backPrompts[0];
-    // Use buildImagePrompt with effectiveTemplateId (holiday-aware) and answers for personalization
-    const finalPrompt = buildImagePrompt(
-      basePrompt,
+    const subjectIndex = i as 0 | 1;
+    const finalPrompt = buildStaticImagePrompt(
       effectiveTemplateId,
       'back',
+      subjectIndex,
       answers
     );
     const image = await generateImageFromPrompt(finalPrompt);
+    const staticSubject = getSubjectPrompt(effectiveTemplateId, 'back', subjectIndex);
     backOptions.push({
       id: `back-${i + 1}`,
       image,
-      prompt: basePrompt,
+      prompt: staticSubject,
     });
   }
 

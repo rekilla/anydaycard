@@ -42,72 +42,71 @@ export const CoverTextSelection: React.FC<CoverTextSelectionProps> = ({
   templateName,
   isLoading,
 }) => {
-  const templateLabel = templateName || 'Selected template';
-  const renderArtPreview = (label: string, showMessageOverlay: boolean, showCoverText: boolean) => (
-    <div className="relative w-full aspect-[3/4] rounded-xl border border-slate-200 bg-white overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-100"></div>
-      <div className="absolute inset-0">
-        <div className="absolute -top-6 -right-6 w-24 h-24 bg-rose-100/70 rounded-full blur-xl"></div>
-        <div className="absolute bottom-6 left-5 w-16 h-16 bg-amber-100/70 rounded-full blur-lg"></div>
-      </div>
-      {showMessageOverlay && (
+  const renderArtPreview = (label: string, isArtSide: boolean, showCoverText: boolean) => (
+    <div className="relative w-full aspect-[3/4] rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm">
+      {isArtSide ? (
         <>
-          <div className="absolute inset-0 bg-white/70"></div>
-          <div className="absolute inset-0 flex flex-col justify-center px-4 gap-2">
-            <div className="h-1.5 w-4/5 bg-slate-200 rounded"></div>
-            <div className="h-1.5 w-3/5 bg-slate-200 rounded"></div>
-            <div className="h-1.5 w-2/3 bg-slate-200 rounded"></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-rose-50 via-amber-50 to-sky-50"></div>
+          <div className="absolute inset-0">
+            <div className="absolute top-4 right-4 w-12 h-12 bg-rose-200/60 rounded-full blur-md"></div>
+            <div className="absolute bottom-6 left-4 w-10 h-10 bg-amber-300/50 rounded-full blur-sm"></div>
           </div>
+          {showCoverText && (
+            <div className="absolute inset-x-0 bottom-3 flex items-center justify-center">
+              <span className="text-[8px] font-semibold uppercase tracking-wider bg-white/90 text-slate-600 px-2 py-0.5 rounded shadow-sm">
+                Cover text
+              </span>
+            </div>
+          )}
         </>
-      )}
-      {showCoverText && (
-        <div className="absolute inset-x-0 bottom-4 flex items-center justify-center">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.2em] bg-white/85 text-slate-600 px-3 py-1 rounded-full shadow-sm">
-            Cover text
-          </span>
+      ) : (
+        <div className="absolute inset-0 flex flex-col justify-center px-3 gap-1.5 bg-white">
+          <div className="h-1 w-4/5 bg-slate-200 rounded"></div>
+          <div className="h-1 w-3/5 bg-slate-200 rounded"></div>
+          <div className="h-1 w-2/3 bg-slate-200 rounded"></div>
         </div>
       )}
-      <span className="absolute top-2 right-2 text-[9px] uppercase tracking-[0.2em] text-slate-400">
+      <span className="absolute top-1.5 right-1.5 text-[8px] uppercase tracking-wider text-slate-400 bg-white/80 px-1.5 py-0.5 rounded">
         {label}
-      </span>
-      <span className="absolute bottom-2 left-2 text-[9px] uppercase tracking-[0.2em] text-slate-500 bg-white/80 px-2 py-1 rounded-full">
-        {templateLabel}
       </span>
     </div>
   );
 
   const renderCoverPreview = (showCoverText: boolean) => {
-    const backLabel = cardFormat === 'book-open' ? 'Inside' : 'Back';
     if (cardFormat === 'book-open') {
+      // Book format: side-by-side like an open book
       return (
-        <div className="relative h-36">
-          <div className="absolute left-0 top-4 w-[48%]">
-            {renderArtPreview('Front', false, showCoverText)}
+        <div className="flex items-center justify-center gap-1 h-32">
+          <div className="w-[45%]">
+            {renderArtPreview('Front', true, showCoverText)}
           </div>
-          <div className="absolute right-0 top-0 w-[48%]">
-            {renderArtPreview(backLabel, true, false)}
+          <div className="w-px h-20 bg-slate-300"></div>
+          <div className="w-[45%]">
+            {renderArtPreview('Inside', false, false)}
           </div>
         </div>
       );
     }
 
     if (cardFormat === 'single-card') {
+      // Single card / postcard: stacked cards showing front and back
       return (
-        <div className="relative h-36">
-          <div className="absolute left-6 top-2 w-[52%] shadow-sm">
-            {renderArtPreview('Front', false, showCoverText)}
+        <div className="relative h-32 flex items-center justify-center">
+          <div className="absolute w-[50%] translate-x-3 translate-y-1 rotate-3">
+            {renderArtPreview('Back', false, false)}
           </div>
-          <div className="absolute left-0 top-8 w-[52%] shadow-sm">
-            {renderArtPreview(backLabel, true, false)}
+          <div className="absolute w-[50%] -translate-x-3 -translate-y-1 -rotate-3">
+            {renderArtPreview('Front', true, showCoverText)}
           </div>
         </div>
       );
     }
 
+    // Default: just show front
     return (
-      <div className="relative h-36">
-        <div className="absolute left-0 top-2 w-[60%]">
-          {renderArtPreview('Front', false, showCoverText)}
+      <div className="flex items-center justify-center h-32">
+        <div className="w-[50%]">
+          {renderArtPreview('Front', true, showCoverText)}
         </div>
       </div>
     );

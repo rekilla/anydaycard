@@ -1,7 +1,7 @@
 Create a refined, letterpress-inspired minimalist design.
 The surface resembles thick, off-white cotton paper with subtle depth and tactile impression.
 Visual elements are extremely restrained—simple forms, gentle emboss or deboss effects, and generous margins.
-Use a timeless, premium color palette aligned with {{vibe}}.
+Use a timeless, premium color palette. {{colorPalette}}
 No illustrations, no text, no photorealism.
 The design should feel intentional, adult, and elegant, flowing seamlessly across front, inside, and back.
 

@@ -2,7 +2,7 @@ Create a minimal composition focused on texture and material rather than objects
 The surface feels tactile—handmade paper, linen, or canvas—with subtle tonal variation and visible grain.
 Lighting is soft and natural, with low contrast and calm shadows.
 Use a restrained palette of warm neutrals and gentle earth tones.
-The mood should feel thoughtful and aligned with {{vibe}}.
+The mood should feel thoughtful. {{colorPalette}}
 No clutter, no patterns, no text. Designed as a continuous visual system that can extend across the entire card.
 
 ---TEXT RULES---

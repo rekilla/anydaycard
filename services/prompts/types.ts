@@ -72,20 +72,34 @@ export interface PromptSelector {
 
 /**
  * Context for replacing placeholders in image prompts
- * Placeholders like {{their_thing}} get replaced with actual user data
+ * Primary placeholder is {{colorPalette}} - others kept for backward compatibility
  */
 export interface PlaceholderContext {
+  /** Primary placeholder - color palette modifier string */
+  colorPalette?: string;
+  /** @deprecated - kept for backward compatibility */
   subject?: string;
+  /** @deprecated - kept for backward compatibility */
   name?: string;
+  /** @deprecated - kept for backward compatibility */
   relationship?: string;
+  /** @deprecated - kept for backward compatibility */
   occasion?: string;
+  /** @deprecated - kept for backward compatibility */
   vibe?: string;
+  /** @deprecated - kept for backward compatibility */
   their_thing?: string;
+  /** @deprecated - kept for backward compatibility */
   inside_joke?: string;
+  /** @deprecated - kept for backward compatibility */
   recent_moment?: string;
+  /** @deprecated - kept for backward compatibility */
   shared_memory?: string;
+  /** @deprecated - kept for backward compatibility */
   what_admire?: string;
+  /** @deprecated - kept for backward compatibility */
   traits?: string;
+  /** @deprecated - kept for backward compatibility */
   any_details?: string;
 }
 

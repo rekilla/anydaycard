@@ -1,7 +1,7 @@
 Create an elegant single-line drawing made from one continuous, expressive line.
 The line feels emotional and intentional, with gentle curves and breathing space.
 The background is off-white or softly tinted, resembling fine art paper.
-The mood subtly reflects {{vibe}} through movement rather than detail.
+The mood subtly reflects through movement rather than detail. {{colorPalette}}
 No shading, no color complexity, no text.
 Designed to feel intimate and artistic across the full card layout.
 

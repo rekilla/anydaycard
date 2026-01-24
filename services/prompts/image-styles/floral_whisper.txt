@@ -2,7 +2,7 @@ Create a soft, dreamlike illustration where delicate florals gently blend into t
 Petals feel translucent, like silk and watercolor, merging naturally with the composition.
 Use high-key, diffused morning light so the image feels bright, airy, and glowing.
 Colors are muted pastels—creams, soft pinks, pale whites, and desaturated greens.
-The emotional tone reflects {{vibe}} in a tender, intimate way.
+The emotional tone is tender and intimate. {{colorPalette}}
 No text, no photorealism, no harsh shadows. Print-ready with generous negative space so the design can flow seamlessly across front, inside, and back.
 
 ---TEXT RULES---

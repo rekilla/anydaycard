@@ -1,6 +1,6 @@
 Create a modern geometric composition using clean, confident shapes and balanced spacing.
 The design feels bold but calm, with intentional symmetry or near-symmetry.
-Use a limited, carefully chosen color palette that supports {{vibe}} without overpowering the message.
+Use a limited, carefully chosen color palette. {{colorPalette}}
 Edges are crisp, surfaces are matte, and the composition feels editorial and contemporary.
 No gradients, no text, no photorealism.
 Designed as a single visual system that flows seamlessly across the front, inside, and back of the card.

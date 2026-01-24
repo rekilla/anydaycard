@@ -1,7 +1,7 @@
 Create a minimal botanical silhouette illustration using leaves or branches as the primary form.
 Shapes are simple and elegant, with subtle ink-like shadows and clean edges.
 The background is calm and uncluttered, allowing negative space to carry meaning.
-Use a restrained, nature-inspired palette that reflects {{vibe}} in a grounded way.
+Use a restrained, nature-inspired palette. {{colorPalette}}
 No gradients, no text, no photorealism.
 The design should feel respectful and continuous across the card.
 

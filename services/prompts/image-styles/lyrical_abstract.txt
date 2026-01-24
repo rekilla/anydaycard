@@ -1,7 +1,7 @@
 Create a flowing abstract watercolor composition with organic, drifting shapes.
 Colors gently bleed into each other with visible translucency and soft edges.
 The movement feels slow and emotional, like a quiet exhale.
-Use a calm, muted palette aligned with {{vibe}}.
+Use a calm, muted palette. {{colorPalette}}
 No sharp contrast, no structure, no text.
 Designed as a seamless emotional backdrop for a folded card.
 
