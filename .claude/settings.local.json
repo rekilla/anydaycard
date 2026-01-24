@@ -11,7 +11,11 @@
       "Bash(npx:*)",
       "Bash(curl:*)",
       "Bash(npm install:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(node -e:*)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(del package-lock.json)"
     ]
   }
 }
