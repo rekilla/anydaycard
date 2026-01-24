@@ -3,6 +3,7 @@ export interface PaymentIntentRequest {
   currency?: string;
   email?: string;
   metadata?: Record<string, string>;
+  idempotencyKey?: string;
 }
 
 export interface PaymentIntentResponse {

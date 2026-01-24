@@ -80,8 +80,8 @@ export interface CheckoutMeta {
   scheduledDate?: string;
   reminderEnabled: boolean;
   shippingSpeed: 'standard' | 'expedited' | 'byDate';
-  trackingNumber: string;
-  deliveryEstimate: string;
+  trackingNumber?: string;
+  deliveryEstimate?: string;
   shippingAddress: {
     name: string;
     line1: string;
@@ -90,6 +90,7 @@ export interface CheckoutMeta {
     state?: string;
     postalCode: string;
   };
+  fulfillmentError?: boolean;
 }
 
 export interface User {

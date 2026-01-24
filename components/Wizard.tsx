@@ -238,17 +238,17 @@ export const Wizard: React.FC<WizardProps> = ({ onComplete, onBackToHome, initia
     setSelectedBackId(null);
     setCardFormat(null);
     setCoverTextPreference(null);
-    setPhase('templates');
+    setPhase('cardFormat');
   };
 
   const handleTemplateConfirm = () => {
     if (!selectedTemplateId) return;
-    setPhase('cardFormat');
+    setPhase('coverText');
   };
 
   const handleCardFormatConfirm = () => {
     if (!cardFormat) return;
-    setPhase('coverText');
+    setPhase('templates');
   };
 
   const handleCoverTextConfirm = async () => {
@@ -368,7 +368,7 @@ export const Wizard: React.FC<WizardProps> = ({ onComplete, onBackToHome, initia
         selectedTemplateId={selectedTemplateId}
         onSelect={(templateId) => setSelectedTemplateId(templateId)}
         onConfirm={handleTemplateConfirm}
-        onBack={() => setPhase('messages')}
+        onBack={() => setPhase('cardFormat')}
         isLoading={isGeneratingDesigns}
       />
     );
@@ -378,16 +378,13 @@ export const Wizard: React.FC<WizardProps> = ({ onComplete, onBackToHome, initia
   // PHASE: Card Format Selection
   // --------------------------------------------------------
   if (phase === 'cardFormat') {
-    const { templates } = getTemplateRecommendations(answers);
-    const selectedTemplate = templates.find((template) => template.id === selectedTemplateId);
     return (
       <CardFormatSelection
         selectedFormat={cardFormat}
         onSelect={(format) => setCardFormat(format)}
         onConfirm={handleCardFormatConfirm}
-        onBack={() => setPhase('templates')}
+        onBack={() => setPhase('messages')}
         isLoading={isGeneratingDesigns}
-        templateName={selectedTemplate?.name}
       />
     );
   }
@@ -403,7 +400,7 @@ export const Wizard: React.FC<WizardProps> = ({ onComplete, onBackToHome, initia
         selectedPreference={coverTextPreference}
         onSelect={(preference) => setCoverTextPreference(preference)}
         onConfirm={handleCoverTextConfirm}
-        onBack={() => setPhase('cardFormat')}
+        onBack={() => setPhase('templates')}
         isLoading={isGeneratingDesigns}
         cardFormat={cardFormat}
         templateName={selectedTemplate?.name}
@@ -440,6 +437,13 @@ export const Wizard: React.FC<WizardProps> = ({ onComplete, onBackToHome, initia
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center py-12 px-6">
         <div className="max-w-3xl w-full space-y-8">
+          {/* Progress Indicator */}
+          <div className="flex items-center justify-end">
+            <div className="text-xs font-medium text-slate-400 uppercase tracking-widest">
+              Review checkpoint
+            </div>
+          </div>
+
           <div className="text-center space-y-4 animate-fade-in-up">
             <h2 className="text-3xl md:text-4xl font-serif font-bold text-slate-900">Review your details</h2>
             <p className="text-slate-500">

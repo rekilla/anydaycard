@@ -105,13 +105,13 @@ export const CardFormatSelection: React.FC<CardFormatSelectionProps> = ({
             <ArrowLeft size={16} /> Back
           </button>
           <div className="text-xs font-medium text-slate-400 uppercase tracking-widest">
-            Step 3 of 5
+            Step 2 of 5
           </div>
         </div>
 
         <div className="text-center space-y-3">
           <h2 className="text-3xl md:text-4xl font-serif font-bold text-slate-900">
-            Choose a card type
+            Choose a card format
           </h2>
           <p className="text-slate-500 max-w-2xl mx-auto">
             Pick the format you want to send. You can change this later.
@@ -147,7 +147,7 @@ export const CardFormatSelection: React.FC<CardFormatSelectionProps> = ({
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-slate-200">
           <p className="text-xs text-slate-400">
-            Next, choose whether the front includes cover text.
+            Next, choose a design template for your card.
           </p>
           <Button
             size="lg"
@@ -156,7 +156,7 @@ export const CardFormatSelection: React.FC<CardFormatSelectionProps> = ({
             isLoading={isLoading}
             className="w-full sm:w-auto"
           >
-            Continue
+            Choose template
           </Button>
         </div>
       </div>

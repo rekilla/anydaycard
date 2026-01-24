@@ -1,7 +1,5 @@
 import { GeneratedCard } from '../types';
 
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
 interface ShippingAddress {
   name: string;
   line1: string;
@@ -27,7 +25,29 @@ export interface FulfillmentResult {
   lobId?: string;
 }
 
+export interface AddressVerificationResult {
+  deliverability: string;
+  deliverabilityAnalysis?: Record<string, unknown>;
+  standardizedAddress: ShippingAddress;
+  valid: boolean;
+}
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+
+export const verifyAddress = async (address: Omit<ShippingAddress, 'name'>): Promise<AddressVerificationResult> => {
+  const response = await fetch(`${API_BASE}/api/lob/verify-address`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ address }),
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || 'Address verification failed');
+  }
+
+  return response.json();
+};
 
 const estimateDelivery = (input: FulfillmentInput) => {
   if (input.deliveryMode === 'later' && input.scheduledDate) return input.scheduledDate;
@@ -45,6 +65,7 @@ export const createPostcardOrder = async (input: FulfillmentInput): Promise<Fulf
   const front = normalizeArtwork(input.card.image);
   const back = normalizeArtwork(input.card.backImage) || front;
 
+  const idempotencyKey = `${input.card.id}-${Date.now()}`;
   const payload = {
     front,
     back,
@@ -63,6 +84,7 @@ export const createPostcardOrder = async (input: FulfillmentInput): Promise<Fulf
       email: input.email,
       cardId: input.card.id,
     },
+    idempotencyKey,
   };
 
   try {
@@ -83,11 +105,8 @@ export const createPostcardOrder = async (input: FulfillmentInput): Promise<Fulf
       deliveryEstimate: data.expectedDeliveryDate || estimateDelivery(input),
       lobId: data.id,
     };
-  } catch (_error) {
-    await delay(500);
-    return {
-      trackingNumber: `ADC-${Math.floor(Math.random() * 900000 + 100000)}`,
-      deliveryEstimate: estimateDelivery(input),
-    };
+  } catch (error) {
+    console.error('Lob fulfillment failed:', error);
+    throw error;
   }
 };

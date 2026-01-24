@@ -4,7 +4,7 @@ import { Button } from './Button';
 import { CheckCircle, Truck, Clock, Mail } from 'lucide-react';
 import { User, GeneratedCard, CheckoutMeta } from '../types';
 import { createPaymentIntent } from '../services/paymentService';
-import { createPostcardOrder } from '../services/fulfillmentService';
+import { createPostcardOrder, verifyAddress } from '../services/fulfillmentService';
 
 interface CheckoutProps {
   user: User | null;
@@ -40,6 +40,8 @@ export const Checkout: React.FC<CheckoutProps> = ({ user, card, onSuccess, onBac
     postalCode: '',
   });
   const [addressErrors, setAddressErrors] = useState<Record<string, string>>({});
+  const [addressVerified, setAddressVerified] = useState(false);
+  const [verifyingAddress, setVerifyingAddress] = useState(false);
 
   const isAnonymous = !user || user.isAnonymous;
 
@@ -52,6 +54,11 @@ export const Checkout: React.FC<CheckoutProps> = ({ user, card, onSuccess, onBac
       setShippingSpeed('byDate');
     }
   }, [scheduledDatePreset]);
+
+  // Reset address verification when address changes
+  useEffect(() => {
+    setAddressVerified(false);
+  }, [address.line1, address.city, address.state, address.postalCode]);
 
   const handlePay = async () => {
     if (!email.includes('@')) {
@@ -86,6 +93,47 @@ export const Checkout: React.FC<CheckoutProps> = ({ user, card, onSuccess, onBac
     setIsProcessing(true);
 
     try {
+      // Verify address with Lob before payment
+      if (!addressVerified) {
+        setVerifyingAddress(true);
+        try {
+          const verification = await verifyAddress({
+            line1: address.line1,
+            line2: address.line2,
+            city: address.city,
+            state: address.state,
+            postalCode: address.postalCode,
+          });
+
+          if (!verification.valid) {
+            setAddressErrors({
+              line1: `Address may be undeliverable: ${verification.deliverability.replace(/_/g, ' ')}`,
+            });
+            setIsProcessing(false);
+            setVerifyingAddress(false);
+            return;
+          }
+
+          // Use standardized address from Lob
+          if (verification.standardizedAddress) {
+            setAddress(prev => ({
+              ...prev,
+              line1: verification.standardizedAddress.line1 || prev.line1,
+              line2: verification.standardizedAddress.line2 || prev.line2,
+              city: verification.standardizedAddress.city || prev.city,
+              state: verification.standardizedAddress.state || prev.state,
+              postalCode: verification.standardizedAddress.postalCode || prev.postalCode,
+            }));
+          }
+          setAddressVerified(true);
+        } catch (verifyError) {
+          console.warn('Address verification failed, proceeding anyway:', verifyError);
+          // Continue with payment even if verification fails - don't block checkout
+        } finally {
+          setVerifyingAddress(false);
+        }
+      }
+
       const cardElement = elements.getElement(CardElement);
       if (!cardElement) {
         alert('Payment form is not ready. Please try again.');
@@ -93,6 +141,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ user, card, onSuccess, onBac
         return;
       }
 
+      const idempotencyKey = `${card?.id || 'unknown'}-${Date.now()}`;
       const paymentIntent = await createPaymentIntent({
         amount: Math.round(totalCost * 100),
         currency: 'usd',
@@ -102,6 +151,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ user, card, onSuccess, onBac
           deliveryMode,
           shippingSpeed: deliveryMode === 'later' ? 'byDate' : shippingSpeed,
         },
+        idempotencyKey,
       });
 
       const { error, paymentIntent: confirmedIntent } = await stripe.confirmCardPayment(
@@ -130,15 +180,23 @@ export const Checkout: React.FC<CheckoutProps> = ({ user, card, onSuccess, onBac
       }
 
       if (card) {
-        const fulfillment = await createPostcardOrder({
-          card,
-          email,
-          deliveryMode,
-          shippingSpeed: deliveryMode === 'later' ? 'byDate' : shippingSpeed,
-          scheduledDate: deliveryMode === 'later' ? scheduledDate : undefined,
-          shippingAddress: address,
-          size: '6x9',
-        });
+        let fulfillment;
+        let fulfillmentFailed = false;
+
+        try {
+          fulfillment = await createPostcardOrder({
+            card,
+            email,
+            deliveryMode,
+            shippingSpeed: deliveryMode === 'later' ? 'byDate' : shippingSpeed,
+            scheduledDate: deliveryMode === 'later' ? scheduledDate : undefined,
+            shippingAddress: address,
+            size: '6x9',
+          });
+        } catch (err) {
+          console.error('Fulfillment failed after successful payment:', err);
+          fulfillmentFailed = true;
+        }
 
         const meta: CheckoutMeta = {
           shippingCost,
@@ -147,18 +205,19 @@ export const Checkout: React.FC<CheckoutProps> = ({ user, card, onSuccess, onBac
           scheduledDate: deliveryMode === 'later' ? scheduledDate : undefined,
           reminderEnabled,
           shippingSpeed: deliveryMode === 'later' ? 'byDate' : shippingSpeed,
-          trackingNumber: fulfillment.trackingNumber,
-          deliveryEstimate: fulfillment.deliveryEstimate,
+          trackingNumber: fulfillment?.trackingNumber,
+          deliveryEstimate: fulfillment?.deliveryEstimate,
           shippingAddress: address,
+          fulfillmentError: fulfillmentFailed,
         };
 
-        onSuccess(email, { 
-          ...card, 
+        onSuccess(email, {
+          ...card,
           scheduledDate: deliveryMode === 'later' ? scheduledDate : undefined,
           shippingSpeed: deliveryMode === 'later' ? 'byDate' : shippingSpeed,
           shippingAddress: address,
-          trackingNumber: fulfillment.trackingNumber,
-          deliveryEstimate: fulfillment.deliveryEstimate,
+          trackingNumber: fulfillment?.trackingNumber,
+          deliveryEstimate: fulfillment?.deliveryEstimate,
           reminderDate: reminderEnabled && scheduledDate ? scheduledDate : undefined,
         }, meta);
         onSuccessNavigate();

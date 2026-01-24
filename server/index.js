@@ -13,6 +13,9 @@ const stripe = stripeSecretKey
   ? new Stripe(stripeSecretKey, { apiVersion: '2024-06-20' })
   : null;
 
+const lobApiKey = process.env.LOB_API_KEY;
+const lob = lobApiKey ? new Lob(lobApiKey) : null;
+
 app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), (req, res) => {
   if (!stripe) {
     return res.status(500).send('Stripe is not configured.');
@@ -39,12 +42,27 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), (req,
   switch (event.type) {
     case 'payment_intent.succeeded': {
       const paymentIntent = event.data.object;
-      console.log('Stripe payment succeeded:', paymentIntent.id);
+      console.log('Payment succeeded:', {
+        id: paymentIntent.id,
+        amount: paymentIntent.amount,
+        currency: paymentIntent.currency,
+        email: paymentIntent.receipt_email,
+        metadata: paymentIntent.metadata,
+      });
+      // TODO: Update order status in database
+      // TODO: Send confirmation email
       break;
     }
     case 'payment_intent.payment_failed': {
       const paymentIntent = event.data.object;
-      console.log('Stripe payment failed:', paymentIntent.id);
+      console.error('Payment failed:', {
+        id: paymentIntent.id,
+        amount: paymentIntent.amount,
+        email: paymentIntent.receipt_email,
+        error: paymentIntent.last_payment_error?.message,
+        metadata: paymentIntent.metadata,
+      });
+      // TODO: Send failure notification
       break;
     }
     default:
@@ -65,20 +83,24 @@ app.post('/api/stripe/payment-intent', async (req, res) => {
     return res.status(500).json({ error: 'STRIPE_SECRET_KEY is not set.' });
   }
 
-  const { amount, currency = 'usd', email, metadata } = req.body || {};
+  const { amount, currency = 'usd', email, metadata, idempotencyKey } = req.body || {};
 
   if (!amount || Number.isNaN(Number(amount)) || Number(amount) <= 0) {
     return res.status(400).json({ error: 'Invalid amount.' });
   }
 
   try {
-    const paymentIntent = await stripe.paymentIntents.create({
+    const createOptions = {
       amount: Math.round(Number(amount)),
       currency,
       receipt_email: email,
       automatic_payment_methods: { enabled: true },
       metadata,
-    });
+    };
+
+    const requestOptions = idempotencyKey ? { idempotencyKey } : {};
+
+    const paymentIntent = await stripe.paymentIntents.create(createOptions, requestOptions);
 
     res.json({
       id: paymentIntent.id,
@@ -90,9 +112,51 @@ app.post('/api/stripe/payment-intent', async (req, res) => {
   }
 });
 
+app.post('/api/lob/verify-address', async (req, res) => {
+  if (!lob) {
+    return res.status(500).json({ error: 'LOB_API_KEY is not set.' });
+  }
+
+  const { address } = req.body || {};
+
+  if (!address || !address.line1 || !address.city || !address.state || !address.postalCode) {
+    return res.status(400).json({ error: 'Missing address fields.' });
+  }
+
+  try {
+    const verification = await lob.usVerifications.verify({
+      primary_line: address.line1,
+      secondary_line: address.line2 || '',
+      city: address.city,
+      state: address.state,
+      zip_code: address.postalCode,
+    });
+
+    const isDeliverable = verification.deliverability === 'deliverable' ||
+      verification.deliverability === 'deliverable_unnecessary_unit' ||
+      verification.deliverability === 'deliverable_incorrect_unit' ||
+      verification.deliverability === 'deliverable_missing_unit';
+
+    res.json({
+      deliverability: verification.deliverability,
+      deliverabilityAnalysis: verification.deliverability_analysis,
+      standardizedAddress: {
+        line1: verification.primary_line,
+        line2: verification.secondary_line || '',
+        city: verification.components?.city,
+        state: verification.components?.state,
+        postalCode: verification.components?.zip_code,
+      },
+      valid: isDeliverable,
+    });
+  } catch (error) {
+    const message = error?.message || 'Address verification failed.';
+    res.status(400).json({ error: message });
+  }
+});
+
 app.post('/api/lob/postcard', async (req, res) => {
-  const lobApiKey = process.env.LOB_API_KEY;
-  if (!lobApiKey) {
+  if (!lob) {
     return res.status(500).json({ error: 'LOB_API_KEY is not set.' });
   }
 
@@ -105,14 +169,15 @@ app.post('/api/lob/postcard', async (req, res) => {
     to,
     metadata,
     description,
+    idempotencyKey,
   } = req.body || {};
 
   if (!front) {
     return res.status(400).json({ error: 'Missing front artwork.' });
   }
 
-  if (!to || !to.address_line1 || !to.address_city || !to.address_zip) {
-    return res.status(400).json({ error: 'Missing destination address.' });
+  if (!to || !to.name || !to.address_line1 || !to.address_city || !to.address_state || !to.address_zip) {
+    return res.status(400).json({ error: 'Missing or incomplete destination address.' });
   }
 
   const from = {
@@ -130,9 +195,7 @@ app.post('/api/lob/postcard', async (req, res) => {
   }
 
   try {
-    const lob = new Lob(lobApiKey);
-
-    const postcard = await lob.postcards.create({
+    const createOptions = {
       description: description || 'Anyday Postcard',
       to,
       from,
@@ -142,7 +205,11 @@ app.post('/api/lob/postcard', async (req, res) => {
       mail_type: mailType,
       send_date: sendDate,
       metadata,
-    });
+    };
+
+    const requestOptions = idempotencyKey ? { idempotencyKey } : {};
+
+    const postcard = await lob.postcards.create(createOptions, requestOptions);
 
     res.json({
       id: postcard.id,

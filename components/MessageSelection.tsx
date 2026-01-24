@@ -138,7 +138,14 @@ export const MessageSelection: React.FC<MessageSelectionProps> = ({
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center py-12 px-6">
       <div className="max-w-4xl w-full space-y-8">
-        
+
+        {/* Step Indicator */}
+        <div className="flex items-center justify-end">
+          <div className="text-xs font-medium text-slate-400 uppercase tracking-widest">
+            Step 1 of 5
+          </div>
+        </div>
+
         {/* Header */}
         <div className="text-center space-y-4 animate-fade-in-up">
           <h2 className="text-3xl md:text-4xl font-serif font-bold text-slate-900">
@@ -282,15 +289,15 @@ export const MessageSelection: React.FC<MessageSelectionProps> = ({
             )}
           </button>
 
-          <Button 
-            size="lg" 
+          <Button
+            size="lg"
             onClick={handleConfirm}
             disabled={selectedIndex === null || isLoading}
             isLoading={isLoading}
             className="w-full md:w-auto px-12"
           >
             {isLoading ? 'Loading...' : (
-               <>Choose Design Template <ChevronRight size={18} className="ml-2" /></>
+               <>Choose card format <ChevronRight size={18} className="ml-2" /></>
             )}
           </Button>
         </div>

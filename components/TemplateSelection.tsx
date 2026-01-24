@@ -35,7 +35,7 @@ export const TemplateSelection: React.FC<TemplateSelectionProps> = ({
             <ArrowLeft size={16} /> Back
           </button>
           <div className="text-xs font-medium text-slate-400 uppercase tracking-widest">
-            Step 2 of 5
+            Step 3 of 5
           </div>
         </div>
 
@@ -84,7 +84,7 @@ export const TemplateSelection: React.FC<TemplateSelectionProps> = ({
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-slate-200">
           <p className="text-xs text-slate-400">
-            Next, choose your card format and cover text style.
+            Next, choose whether to add cover text to your design.
           </p>
           <Button
             size="lg"
@@ -93,7 +93,7 @@ export const TemplateSelection: React.FC<TemplateSelectionProps> = ({
             isLoading={isLoading}
             className="w-full sm:w-auto"
           >
-            Choose card type
+            Continue
           </Button>
         </div>
       </div>
