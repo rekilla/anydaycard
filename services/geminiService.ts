@@ -15,10 +15,15 @@ import {
 
 // Initialize Gemini Client
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-if (!apiKey) {
-  throw new Error('VITE_GEMINI_API_KEY environment variable is not set. Please add it to your .env.local file.');
-}
-const ai = new GoogleGenAI({ apiKey });
+const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
+
+// Helper to check API availability
+const ensureApiKey = () => {
+  if (!apiKey || !ai) {
+    throw new Error('VITE_GEMINI_API_KEY environment variable is not set. Please add it to your environment.');
+  }
+  return ai;
+};
 
 const TEXT_MODEL = 'gemini-2.0-flash'; // Text generation model
 const IMAGE_MODEL = 'imagen-4.0-generate-001'; // Imagen 4 for high-quality image generation
@@ -246,7 +251,7 @@ Return exactly 4 options in this JSON format:
   `;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await ensureApiKey().models.generateContent({
       model: model,
       contents: prompt,
       config: {
@@ -422,7 +427,7 @@ export const generateCardDesign = async (
 
   try {
     // A. Generate Art Prompt text
-    const textResponse = await ai.models.generateContent({
+    const textResponse = await ensureApiKey().models.generateContent({
       model: model,
       contents: prompt,
       config: {
